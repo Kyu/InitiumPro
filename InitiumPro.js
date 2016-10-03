@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         InitiumPro
-// @namespace    https://github.com/hey-nails/InitiumPro
+// @namespace    https://github.com/spfiredrake/InitiumPro
 // @version      0.5
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
@@ -230,7 +230,7 @@ function getLocalStuff() {
         $("#local-item-summary").toggle(!HIDE_NEARBY);
         $("#hide-inline-items").bind("click", function() { 
             HIDE_NEARBY = !HIDE_NEARBY; 
-            $(this).toggleClass("hidden", HIDE_NEARBY); 
+            $("#hide-inline-items").html(HIDE_NEARBY ? "↓" : "↑");
             $("#local-item-summary").toggle(HIDE_NEARBY);
             if(window.localItems === "undefined") getLocalStuff();
         });
@@ -505,7 +505,6 @@ function updateCSS() {
                      "#instanceRespawnWarning { padding:10px; }"+
                      "#banner-loading-icon { opacity: 0.7; }"+
                      "#hide-inline-items { margin-right:30px; }"+
-                     "#hide-inline-items.hidden { content: '↑' }"+
                      ".saleItem { margin-top:25px; }"+
                      ".saleItem .clue { margin-left:20px; }"+
                      ".saleItem .clue img { display:none; }"+
