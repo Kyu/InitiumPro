@@ -2,9 +2,9 @@
 // @name         InitiumPro
 // @namespace    https://github.com/hey-nails/InitiumPro
 // @version      0.5
-// @updateURL    https://raw.githubusercontent.com/hey-nails/InitiumPro/master/InitiumPro.js
-// @downloadURL  https://raw.githubusercontent.com/hey-nails/InitiumPro/master/InitiumPro.js
-// @supportURL   https://github.com/hey-nails/InitiumPro
+// @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
+// @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
+// @supportURL   https://github.com/spfiredrake/InitiumPro
 // @match        https://www.playinitium.com/*
 // @match        http://www.playinitium.com/*
 // @grant        none
@@ -24,6 +24,7 @@ var   AUTO_LEAVE_FORGET = false; //automatically clicks 'Leave and Forget' after
 var           AUTO_FLEE = 70;    //percent of health to flee automatically. 0 turns it off
 var AUTO_CONFIRM_POPUPS = false; //confirms popups like camp name so you can keep your fingers to the metal!
 var        HIDE_VERSION = false; //this will hide pro icon with the version number (you jerk)
+var         HIDE_NEARBY = false; //this hides and prevents nearby items list from pulling every request
 
 /***************************/
 
@@ -222,7 +223,19 @@ function getLocalGold() {
 
 function getLocalStuff() {
     var localItemsList,localItemsURL="/ajax_moveitems.jsp?preset=location";
-    if($("#local-item-summary-container").length===0) $("#buttonbar-main").first().append("<div id='local-item-summary-container'><div id='local-item-summary-container'><h4 style='margin-top:20px;'>Items in area:&nbsp;<div id='reload-local-items-container'><a id='reload-inline-items'><img src='javascript/images/wait.gif'></a></div></h4><div class='blue-box-full-top'></div><div id='local-item-summary' class='div-table'><div><br/><br/><center><img src='javascript/images/wait.gif'></center><br/><br/></div></div><div class='blue-box-full-bottom'></div></div></div>"); //add summary box if not exists
+    if($("#local-item-summary-container").length===0) 
+    {
+        $("#buttonbar-main").first().append("<div id='local-item-summary-container'><div id='local-item-summary-container'><h4 style='margin-top:20px;'>Items in area:&nbsp;<div id='reload-local-items-container'><a id='hide-inline-items'>↓</a><a id='reload-inline-items'><img src='javascript/images/wait.gif'></a></div></h4><div class='blue-box-full-top'></div><div id='local-item-summary' class='div-table'><div><br/><br/><center><img src='javascript/images/wait.gif'></center><br/><br/></div></div><div class='blue-box-full-bottom'></div></div></div>"); //add summary box if not exists
+        $("#hide-inline-items").toggleClass("hidden", HIDE_NEARBY);
+        $("#local-item-summary").toggle(!HIDE_NEARBY);
+        $("#hide-inline-items").bind("click", function() { 
+            HIDE_NEARBY = !HIDE_NEARBY; 
+            $(this).toggleClass("hidden", HIDE_NEARBY); 
+            $("#local-item-summary").toggle(HIDE_NEARBY);
+            if(window.localItems === "undefined") getLocalStuff();
+        });
+    }
+    if(HIDE_NEARBY) return;
     $("#reload-inline-items").html("<img src='javascript/images/wait.gif'>");
     window.localItems={};//clear the obj
     $.ajax({ url: localItemsURL, type: "GET",
@@ -491,6 +504,8 @@ function updateCSS() {
                      ".main-dynamic-content-box { padding-left:10px; }"+
                      "#instanceRespawnWarning { padding:10px; }"+
                      "#banner-loading-icon { opacity: 0.7; }"+
+                     "#hide-inline-items { margin-right:30px; }"+
+                     "#hide-inline-items.hidden { content: '&darr;' }"+
                      ".saleItem { margin-top:25px; }"+
                      ".saleItem .clue { margin-left:20px; }"+
                      ".saleItem .clue img { display:none; }"+
