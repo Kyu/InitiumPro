@@ -232,7 +232,7 @@ function getLocalStuff() {
             HIDE_NEARBY = !HIDE_NEARBY; 
             $("#hide-inline-items").html(HIDE_NEARBY ? "↓" : "↑");
             $("#local-item-summary").toggle(HIDE_NEARBY == false);
-            getLocalStuff();
+            if(Object.getOwnPropertyNames(window.localItems).length === 0) getLocalStuff();
         });
         $("#reload-inline-items").bind('click',function(){getLocalStuff();});
     }
