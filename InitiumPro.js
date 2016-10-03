@@ -505,7 +505,7 @@ function updateCSS() {
                      "#instanceRespawnWarning { padding:10px; }"+
                      "#banner-loading-icon { opacity: 0.7; }"+
                      "#hide-inline-items { margin-right:30px; }"+
-                     "#hide-inline-items.hidden { content: '&darr;' }"+
+                     "#hide-inline-items.hidden { content: '↑' }"+
                      ".saleItem { margin-top:25px; }"+
                      ".saleItem .clue { margin-left:20px; }"+
                      ".saleItem .clue img { display:none; }"+
