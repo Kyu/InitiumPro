@@ -24,7 +24,7 @@ var   AUTO_LEAVE_FORGET = false; //automatically clicks 'Leave and Forget' after
 var           AUTO_FLEE = 70;    //percent of health to flee automatically. 0 turns it off
 var AUTO_CONFIRM_POPUPS = false; //confirms popups like camp name so you can keep your fingers to the metal!
 var        HIDE_VERSION = false; //this will hide pro icon with the version number (you jerk)
-var         HIDE_NEARBY = false; //this hides and prevents nearby items list from pulling every request
+var         HIDE_NEARBY = true; //this hides and prevents nearby items list from pulling every request
 
 /***************************/
 
@@ -225,15 +225,16 @@ function getLocalStuff() {
     var localItemsList,localItemsURL="/ajax_moveitems.jsp?preset=location";
     if($("#local-item-summary-container").length===0) 
     {
-        $("#buttonbar-main").first().append("<div id='local-item-summary-container'><div id='local-item-summary-container'><h4 style='margin-top:20px;'>Items in area:&nbsp;<div id='reload-local-items-container'><a id='hide-inline-items'>↓</a><a id='reload-inline-items'><img src='javascript/images/wait.gif'></a></div></h4><div class='blue-box-full-top'></div><div id='local-item-summary' class='div-table'><div><br/><br/><center><img src='javascript/images/wait.gif'></center><br/><br/></div></div><div class='blue-box-full-bottom'></div></div></div>"); //add summary box if not exists
-        $("#hide-inline-items").toggleClass("hidden", HIDE_NEARBY);
-        $("#local-item-summary").toggle(!HIDE_NEARBY);
+        $("#buttonbar-main").first().append("<div id='local-item-summary-container'><div id='local-item-summary-container'><h4 style='margin-top:20px;'>Items in area:&nbsp;<div id='reload-local-items-container'><a id='hide-inline-items'>↓</a><a id='reload-inline-items'>↻</a></div></h4><div class='blue-box-full-top'></div><div id='local-item-summary' class='div-table'><div><br/><br/><center><img src='javascript/images/wait.gif'></center><br/><br/></div></div><div class='blue-box-full-bottom'></div></div></div>"); //add summary box if not exists
+        $("#hide-inline-items").html(HIDE_NEARBY ? "↓" : "↑");
+        $("#local-item-summary").toggle(HIDE_NEARBY == false);
         $("#hide-inline-items").bind("click", function() { 
             HIDE_NEARBY = !HIDE_NEARBY; 
             $("#hide-inline-items").html(HIDE_NEARBY ? "↓" : "↑");
-            $("#local-item-summary").toggle(HIDE_NEARBY);
-            if(window.localItems === "undefined") getLocalStuff();
+            $("#local-item-summary").toggle(HIDE_NEARBY == false);
+            getLocalStuff();
         });
+        $("#reload-inline-items").bind('click',function(){getLocalStuff();});
     }
     if(HIDE_NEARBY) return;
     $("#reload-inline-items").html("<img src='javascript/images/wait.gif'>");
@@ -305,7 +306,6 @@ function getLocalStuff() {
                 //display items in area summary when user enters
                 $("#local-item-summary").html(localItemSummary);
                 $("#local-item-summary").css({"background-size":"100% "+((Object.keys(window.localItems).length*28)+100)+"px"});
-                $("#reload-inline-items").bind('click',function(){getLocalStuff();});
                 $('.show-item-sublist').bind('click',function(){ //bind the actions
                     var itemName=$(this).attr('item-name').decode(),firstItem=window.localItems[itemName][Object.keys(window.localItems[itemName])[0]], //first item in obj
                         itemSublist="<div style='font-size:20px;'><img src='"+firstItem.image+ "'> <span style='color:#DDD;'>x"+Object.keys(window.localItems[firstItem.name]).length+"</span> <span>"+firstItem.name+":</span><span style='float:right;font-size:27px;'><a class='close-item-sublist' onclick=''>X</a></span></div><hr>";
