@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.5.1
+// @version      0.6
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
