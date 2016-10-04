@@ -141,10 +141,12 @@ function loadLocalMerchantDetails() {
 function keepPunching() {
     //for a more CircleMUD feel
     if(AUTO_SWING) {
-        if(loc.type==="in combat!" && window.urlParams.type==="attack" && player.health>AUTO_FLEE) {
-            if(window.urlParams.hand==="RightHand")  window.combatAttackWithRightHand();  else  window.combatAttackWithLeftHand();
-            combatMessage("Attacking with "+window.urlParams.hand,"AUTO-SWING");
-        }
+        setTimeout(function() {
+            if(loc.type==="in combat!" && window.urlParams.type==="attack" && player.health>AUTO_FLEE) {
+                if(window.urlParams.hand==="RightHand")  window.combatAttackWithRightHand();  else  window.combatAttackWithLeftHand();
+                combatMessage("Attacking with "+window.urlParams.hand,"AUTO-SWING");
+            }
+        }, 500);
     }
     if(AUTO_FLEE>0) {
         if(loc.type==="in combat!" && player.health<=AUTO_FLEE) {
