@@ -21,9 +21,9 @@ var           AUTO_GOLD = true;  //auto get gold after battles and when entering
 var           AUTO_REST = true;  //auto rest if injured and in restable area
 var          AUTO_SWING = true; //repeats attack after your initial attack
 var   AUTO_LEAVE_FORGET = false; //automatically clicks 'Leave and Forget' after a battle
-var           AUTO_FLEE = 70;    //percent of health to flee automatically. 0 turns it off
-var AUTO_CONFIRM_POPUPS = false; //confirms popups like camp name so you can keep your fingers to the metal!
-var        HIDE_VERSION = false; //this will hide pro icon with the version number (you jerk)
+var           AUTO_FLEE = 0;    //percent of health to flee automatically. 0 turns it off
+var AUTO_CONFIRM_POPUPS = true; //confirms popups like camp name so you can keep your fingers to the metal!
+var        HIDE_VERSION = true; //this will hide pro icon with the version number (you jerk)
 var         HIDE_NEARBY = true; //this hides and prevents nearby items list from pulling every request
 
 /***************************/
@@ -227,11 +227,11 @@ function getLocalStuff() {
     {
         $("#buttonbar-main").first().append("<div id='local-item-summary-container'><div id='local-item-summary-container'><h4 style='margin-top:20px;'>Items in area:&nbsp;<div id='reload-local-items-container'><a id='hide-inline-items'>↓</a><a id='reload-inline-items'>↻</a></div></h4><div class='blue-box-full-top'></div><div id='local-item-summary' class='div-table'><div><br/><br/><center><img src='javascript/images/wait.gif'></center><br/><br/></div></div><div class='blue-box-full-bottom'></div></div></div>"); //add summary box if not exists
         $("#hide-inline-items").html(HIDE_NEARBY ? "↓" : "↑");
-        $("#local-item-summary").toggle(HIDE_NEARBY == false);
+        $("#local-item-summary").toggle(!HIDE_NEARBY);
         $("#hide-inline-items").bind("click", function() { 
             HIDE_NEARBY = !HIDE_NEARBY; 
             $("#hide-inline-items").html(HIDE_NEARBY ? "↓" : "↑");
-            $("#local-item-summary").toggle(HIDE_NEARBY == false);
+            $("#local-item-summary").toggle(!HIDE_NEARBY);
             if(Object.getOwnPropertyNames(window.localItems).length === 0) getLocalStuff();
         });
         $("#reload-inline-items").bind('click',function(){getLocalStuff();});
@@ -481,8 +481,13 @@ function observe(els,config) {
 }
 function updateLayouts() {
     //Class updates
-    $(".main-buttonbox").find("br").remove().appendTo("main-page-banner-image");
-    $(".main-button").removeClass("main-button").addClass("main-button-half").addClass("action-button");
+    $(".main-buttonbox").find("br").remove().appendTo(".main-page-banner-image");
+    $(".main-button").removeClass("main-button").each(function(i,e){
+        var curButton = $(e);
+        curButton.add(curButton.prev(".main-forgetPath")).wrapAll("<div class='main-button-half action-button'></div>");
+    });
+    $(".main-buttonbox > center").wrap("<div class='main-button-half action-button'></div>");
+    $("a[shortcut='69']").parent().append($(".main-button-icon"));
     //Add loc type to header
     if(loc.type)$(".header-location").append("<span style='margin-left:12px;color:red;'>("+loc.type+")</span>");
     //show 'em that pro is active!
@@ -499,8 +504,10 @@ function updateCSS() {
                      "#instanceRespawnWarning { display:none!important; }"+
                      ".character-display-box { padding: 5px!important; }"+
                      ".main-buttonbox { text-align: center; }"+
-                     ".main-button-icon { display: none; }"+
-                     ".main-button-half.action-button { width: 33.3333%;float:left;font-size:15px; }"+
+                     ".main-button-half.action-button { width: 33.3333%;float:left;font-size:15px;display:inline-block }"+
+                     ".main-button-half.action-button .main-forgetPath { margin-top:inherit; margin-right:inherit; }"+
+                     ".main-button-half.action-button .main-button-icon { margin-top:-15px; }"+
+                     ".main-button-half.action-button .main-button-icon > img { max-width:80%; }"+
                      ".main-dynamic-content-box { padding-left:10px; }"+
                      "#instanceRespawnWarning { padding:10px; }"+
                      "#banner-loading-icon { opacity: 0.7; }"+
