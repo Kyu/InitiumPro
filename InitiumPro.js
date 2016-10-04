@@ -141,7 +141,7 @@ function loadLocalMerchantDetails() {
 function keepPunching() {
     //for a more CircleMUD feel
     if(AUTO_SWING) {
-        if(if(loc.type==="in combat!" && window.urlParams.type==="attack" && player.health>AUTO_FLEE) {
+        if(loc.type==="in combat!" && window.urlParams.type==="attack" && player.health>AUTO_FLEE) {
             if(window.urlParams.hand==="RightHand")  window.combatAttackWithRightHand();  else  window.combatAttackWithLeftHand();
             combatMessage("Attacking with "+window.urlParams.hand,"AUTO-SWING");
         }
