@@ -1,34 +1,71 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.6
+// @version      0.7
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
 // @match        https://www.playinitium.com/*
 // @match        http://www.playinitium.com/*
 // @grant        none
-// @grant        GM_setValue
-// @grant        GM_info
+// @require     https://gist.githubusercontent.com/arantius/3123124/raw/grant-none-shim.js
 // ==/UserScript==
 /* jshint -W097 */
 
 'use strict';
+var $=window.jQuery,loc={},player={};
 
 /*** INITIUM PRO OPTIONS ***/
+var IPOptions = ({
+              AUTO_GOLD: GM_getValue("ipAUTO_GOLD", true),  //auto get gold after battles and when entering a room
+              AUTO_REST: GM_getValue("ipAUTO_REST", true),  //auto rest if injured and in restable area
+             AUTO_SWING: GM_getValue("ipAUTO_SWING", true), //repeats attack after your initial attack
+   AUTO_SWING_THRESHOLD: GM_getValue("ipAUTO_SWING_THRESHOLD", 70), //percent of health at which to pause auto-swing   
+      AUTO_LEAVE_FORGET: GM_getValue("ipAUTO_LEAVE_FORGET", false), //automatically clicks 'Leave and Forget' after a battle
+              AUTO_FLEE: GM_getValue("ipAUTO_FLEE", 0),    //percent of health to flee automatically. 0 turns it off
+    AUTO_CONFIRM_POPUPS: GM_getValue("ipAUTO_CONFIRM_POPUPS", false), //confirms popups like camp name so you can keep your fingers to the metal!
+           HIDE_VERSION: GM_getValue("ipHIDE_VERSION", true), //this will hide pro icon with the version number (you jerk)
+            HIDE_NEARBY: GM_getValue("ipHIDE_NEARBY", true), //this hides and prevents nearby items list from pulling every request
+           COMBAT_DELAY: GM_getValue("ipCOMBAT_DELAY", 500), //this delays combat
+         INSTANCE_DELAY: GM_getValue("ipINSTANCE_DELAY", 1000), //this hides and prevents nearby items list from pulling every request
 
-var           AUTO_GOLD = true;  //auto get gold after battles and when entering a room
-var           AUTO_REST = true;  //auto rest if injured and in restable area
-var          AUTO_SWING = true; //repeats attack after your initial attack
-var   AUTO_LEAVE_FORGET = false; //automatically clicks 'Leave and Forget' after a battle
-var           AUTO_FLEE = 0;    //percent of health to flee automatically. 0 turns it off
-var AUTO_CONFIRM_POPUPS = true; //confirms popups like camp name so you can keep your fingers to the metal!
-var        HIDE_VERSION = true; //this will hide pro icon with the version number (you jerk)
-var         HIDE_NEARBY = true; //this hides and prevents nearby items list from pulling every request
+    // ChangeSetting function. Sets the underlying property value and stores it in browser storage DB
+    ChangeSetting: function(settingName, newValue)
+    {
+        this[settingName] = newValue;
+        GM_setValue("ip"+settingName, newValue);
+        return newValue;
+    },
+    
+    DefaultSettings: function()
+    {
+        this.ChangeSetting("AUTO_GOLD", true);
+        this.ChangeSetting("AUTO_REST", true);
+        this.ChangeSetting("AUTO_SWING", true);
+        this.ChangeSetting("AUTO_SWING_THRESHOLD", 70);
+        this.ChangeSetting("AUTO_LEAVE_FORGET", false);
+        this.ChangeSetting("AUTO_FLEE", 0);
+        this.ChangeSetting("AUTO_CONFIRM_POPUPS", false);
+        this.ChangeSetting("HIDE_VERSION", true);
+        this.ChangeSetting("HIDE_NEARBY", true);
+        this.ChangeSetting("COMBAT_DELAY", 500);
+        this.ChangeSetting("INSTANCE_DELAY", 1000);
+    }
+});
 
+function resetDefaultSettings()
+{
+    IPOptions.DefaultSettings();
+    $("#InitiumProSettings input").each(function(i, e){
+        var elem = $(e);
+        var settingId = e.id;
+        if(elem.is(":checkbox"))
+            elem.prop("checked", IPOptions[settingId]);
+        else
+            elem.val(IPOptions[settingId]);
+    });
+}
 /***************************/
-
-var $=window.jQuery,loc={},player={};
 
 //ajax queue
 (function($) {
@@ -140,30 +177,44 @@ function loadLocalMerchantDetails() {
 
 function keepPunching() {
     //for a more CircleMUD feel
-    if(AUTO_SWING) {
-        setTimeout(function() {
-            if(loc.type==="in combat!" && window.urlParams.type==="attack" && player.health>AUTO_FLEE) {
+    if(IPOptions.AUTO_SWING) {
+        if(player.health<IPOptions.AUTO_SWING_THRESHOLD)
+        {
+            combatMessage("Your health is below the auto-swing threshold", "AUTO-SWING");
+            return;
+        }
+        
+        if(loc.type==="in combat!" && window.urlParams.type==="attack" && player.health>IPOptions.AUTO_FLEE) 
+        {
+            setTimeout(function() {
                 if(window.urlParams.hand==="RightHand")  window.combatAttackWithRightHand();  else  window.combatAttackWithLeftHand();
                 combatMessage("Attacking with "+window.urlParams.hand,"AUTO-SWING");
-            }
-        }, 500);
+            }, IPOptions.COMBAT_DELAY);
+        }
+        if(loc.type==="in a fight!" && window.urlParams.type==="attack" && player.health>IPOptions.AUTO_FLEE) 
+        {
+            setTimeout(function() {
+                if(window.urlParams.hand==="RightHand")  window.combatAttackWithRightHand();  else  window.combatAttackWithLeftHand();
+                combatMessage("Attacking with "+window.urlParams.hand,"AUTO-SWING");
+            }, IPOptions.INSTANCE_DELAY);
+        }
     }
-    if(AUTO_FLEE>0) {
-        if(loc.type==="in combat!" && player.health<=AUTO_FLEE) {
-            combatMessage("Your health is below "+AUTO_FLEE+"%, trying to gtfo!","AUTO-FLEE");
+    if(IPOptions.AUTO_FLEE>0) {
+        if((loc.type==="in combat!" || loc.type==="in a fight!") && player.health<=IPOptions.AUTO_FLEE) {
+            combatMessage("Your health is below "+IPOptions.AUTO_FLEE+"%, trying to gtfo!","AUTO-FLEE");
             window.combatEscape();
         }
     }
-    if(AUTO_REST && loc.rest===true && player.health<100) window.doRest();
-    if(AUTO_LEAVE_FORGET && loc.type==="combat site") {
-        if(AUTO_GOLD) {
+    if(IPOptions.AUTO_REST && loc.rest===true && player.health<100) window.doRest();
+    if(IPOptions.AUTO_LEAVE_FORGET && loc.type==="combat site") {
+        if(IPOptions.AUTO_GOLD) {
             setTimeout(function() {
                 if(window.gotGold===true) {
                     $('a[onclick^="leaveAndForgetCombatSite"]').click();
                 } else {
                     location.reload();//we didn't get gold, reload and try again.
                 }
-            }, 7000); //reload aftera wait to make sure we got gold
+            }, 7000); //reload after a wait to make sure we got gold
         } else {
             $('a[onclick^="leaveAndForgetCombatSite"]').click();
         }
@@ -228,17 +279,17 @@ function getLocalStuff() {
     if($("#local-item-summary-container").length===0) 
     {
         $("#buttonbar-main").first().append("<div id='local-item-summary-container'><div id='local-item-summary-container'><h4 style='margin-top:20px;'>Items in area:&nbsp;<div id='reload-local-items-container'><a id='hide-inline-items'>↓</a><a id='reload-inline-items'>↻</a></div></h4><div class='blue-box-full-top'></div><div id='local-item-summary' class='div-table'><div><br/><br/><center><img src='javascript/images/wait.gif'></center><br/><br/></div></div><div class='blue-box-full-bottom'></div></div></div>"); //add summary box if not exists
-        $("#hide-inline-items").html(HIDE_NEARBY ? "↓" : "↑");
-        $("#local-item-summary").toggle(!HIDE_NEARBY);
+        $("#hide-inline-items").html(IPOptions.HIDE_NEARBY ? "↓" : "↑");
+        $("#local-item-summary").toggle(!IPOptions.HIDE_NEARBY);
         $("#hide-inline-items").bind("click", function() { 
-            HIDE_NEARBY = !HIDE_NEARBY; 
-            $("#hide-inline-items").html(HIDE_NEARBY ? "↓" : "↑");
-            $("#local-item-summary").toggle(!HIDE_NEARBY);
+            var hideNearby = IPOptions.ChangeSetting("HIDE_NEARBY", !IPOptions.HIDE_NEARBY); 
+            $("#hide-inline-items").html(hideNearby ? "↓" : "↑");
+            $("#local-item-summary").toggle(!hideNearby);
             if(Object.getOwnPropertyNames(window.localItems).length === 0) getLocalStuff();
         });
         $("#reload-inline-items").bind('click',function(){getLocalStuff();});
     }
-    if(HIDE_NEARBY) return;
+    if(IPOptions.HIDE_NEARBY) return;
     $("#reload-inline-items").html("<img src='javascript/images/wait.gif'>");
     window.localItems={};//clear the obj
     $.ajax({ url: localItemsURL, type: "GET",
@@ -409,6 +460,49 @@ function getPlayerStats() {
 
 //display stats
 function statDisplay() {
+    var settingKeys = Object.keys(IPOptions);
+    var settingsHtml = $(settingKeys).map(function(idx, name) {
+        if(typeof IPOptions[name] === "function") return "";
+        var sVal = IPOptions[name];
+        // Sanitize the setting value by checking if it's a checkbox, and converting value to a boolean.
+        var cb = sVal === "true" || sVal === "false";
+        if(cb) sVal = sVal === "true";
+        return "<div class='row'>" + 
+            "<div class='cell'>" + name + "</div>" +
+            "<div class='cell value'><input id='" + name + "' type='" + 
+            (typeof sVal === "boolean" ? ("checkbox" + (sVal ? "' checked='checked" : "")) : "text' value='" + sVal) + "'></div>" +
+            "</div>";
+    }).get().join("");
+    $(".header-stats a:last").before("<span class='hint' rel='#InitiumProSettings'><img id='gear_icon' src='"+window.IMG_GEAR+"' border='0'></span>");
+    $(".header-stats").append(
+        "<div class='hiddenTooltip' id='InitiumProSettings'>" + 
+        "<div class='header'><h5>InitiumPro Settings</h5></div>" +
+        "<div class='table'>" +
+        settingsHtml +
+        "</div><br/><center><a id='resetSettings'>Default Settings</a><center></div>");
+    $("#resetSettings").on("click", resetDefaultSettings);
+    // Have to attach at the body, since cluetip functionality is done after load.
+    $("body").on("change", "#cluetip #InitiumProSettings input", function(event) {
+        var element = $(event.currentTarget);
+        var settingId = element.attr("id");
+        // We have to modify the original hidden cluetip div as well, otherwise our UI settings won't stick
+        if(element.is(":checkbox"))
+        {
+            // prop returns the correctly typed value of whatever property we're dealing with (in this case, bool)
+            $("#InitiumProSettings #"+settingId).not(element).prop("checked", element.prop("checked"));
+            IPOptions.ChangeSetting(settingId, element.prop("checked"));
+        }
+        else
+        {
+            // Only update the value if it's a valid number. Use + prefix to convert to number, which results in NaN if
+            // it's not a valid integer value. Textboxes only "change" when focus is lost.
+            if(!isNaN(+element.val()))
+            {
+                $("#InitiumProSettings #"+settingId).not(element).val(+element.val());
+                IPOptions.ChangeSetting(settingId, +element.val());
+            }
+        }
+    });
     $.ajaxQueue({
         url: $(".character-display-box:eq(0)").children().first().attr("rel"),
     }).done(function(data) {
@@ -456,7 +550,7 @@ function mutationHandler (mutationRecords) {
         if (typeof mutation.removedNodes == "object") {
             var removed = $(mutation.removedNodes);
             var added = $(mutation.addedNodes);
-            if(AUTO_CONFIRM_POPUPS) $(added).find(".popup_confirm_yes").click();//auto-click confirm yes button
+            if(IPOptions.AUTO_CONFIRM_POPUPS) $(added).find(".popup_confirm_yes").click();//auto-click confirm yes button
             //instance countdown
             var countDown=removed.text().split("arrive")[1];
             if(countDown) {
@@ -493,7 +587,7 @@ function updateLayouts() {
     //Add loc type to header
     if(loc.type)$(".header-location").append("<span style='margin-left:12px;color:red;'>("+loc.type+")</span>");
     //show 'em that pro is active!
-    if(!HIDE_VERSION)$(".header").append("<div id='initium-pro-version'><a href='https://github.com/hey-nails/InitiumPro' target='_blank'><img src='"+window.IMG_PRO+"'><span>v "+GM_info.script.version+"</span></a></div>");
+    if(!IPOptions.HIDE_VERSION)$(".header").append("<div id='initium-pro-version'><a href='https://github.com/hey-nails/InitiumPro' target='_blank'><img src='"+window.IMG_PRO+"'><span>v "+GM_info.script.version+"</span></a></div>");
     //the candle
     $(".header").append("<div id='light'><a onclick='$(\".banner-shadowbox\").toggleClass(\"torched\");'><img src='"+window.IMG_CANDLE+"'></a></div>");
 }
@@ -508,7 +602,7 @@ function updateCSS() {
                      ".main-buttonbox { text-align: center; }"+
                      ".main-button-half.action-button { width: 33.3333%;float:left;font-size:15px;display:inline-block }"+
                      ".main-button-half.action-button .main-forgetPath { margin-top:inherit; margin-right:inherit; }"+
-                     ".main-button-half.action-button .main-button-icon { margin-top:-15px; }"+
+                     ".main-button-half.action-button .main-button-icon { margin-top:0px; }"+
                      ".main-button-half.action-button .main-button-icon > img { max-width:80%; }"+
                      ".main-dynamic-content-box { padding-left:10px; }"+
                      "#instanceRespawnWarning { padding:10px; }"+
@@ -520,6 +614,14 @@ function updateCSS() {
                      ".banner-shadowbox { transition:1s ease; }"+
                      "div[src]>div>br { display:none!important; }"+
                      //InitiumPro custom elements
+                     "#gear_icon { min-width:18px;margin-right:6px; }" +
+                     "#InitiumProSettings .header { margin-top:-15px;margin-bottom:15px; }" +
+                     "#InitiumProSettings .footer .cell { vertical-align:bottom; }" +
+                     "#InitiumProSettings .cell { width:45%; text-align:right;padding:3px;vertical-align:middle; }" +
+                     "#InitiumProSettings .row { height:26px; }" +
+                     "#InitiumProSettings .cell.value { text-align:left;padding-left:15px; }" +
+                     "#InitiumProSettings input { width:50%; }" +
+                     "#InitiumProSettings input[type=checkbox] { height:20px; }" +
                      ".hidden { display:none!important; }"+
                      ".torched { filter:brightness(2); }"+
                      "#light { transition:.2s ease;filter:brightness(.3);position:absolute;top:115px;margin-left:710px;z-index:99999999; }"+
@@ -568,6 +670,7 @@ function updateCSS() {
     window.IMG_ARROW="data:image/gif;base64,R0lGODlhFAASAIABAPv+/v///yH5BAEAAAEALAAAAAAUABIAAAInjH+ggO2x1JtRTlfZbXnz6iEdlJXmiaYlqYLh6MGbfNGU+0ZhsjwFADs=";
     window.IMG_CANDLE="data:image/gif;base64,R0lGODlhHgA8AKIHAEEyMdmgZu7Fl99xJopvMP///6wyMv///yH5BAEAAAcALAAAAAAeADwAAAP/eLq8Zi3KqR69OOvNu3cfBoXSM5KNiUbq6gzD6RqwvNK1HRqCEOsfns8y6/1cCtgAuVAyGYBVbxoI4EjTXhUAw/oGhV6h6uwYwWJy91MdBwQFdyBUFdTjePr7ji/o7W9xU398g2x7gWE9hImGHnWFi4eAcIoCjFmSj4iZlx9Ub5mYdZodkJylHKeUqRugrJ4er6SxZlqotRyzobmumachncCfv4jBxYB/oFVzk8tVyresm6HMzK0Y14DW2A1kCtrW1hnfB+Hi0BEE6wQAdettcehkW+wK7OtcA+1TAP7t+gDgI7BgIAEYAqe0W6jPYIR/+Pzp2zfQHwaJGDNm1KCxCCPGDh4lUkgAADs=";
     window.IMG_BOXBUTTON="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAB1CAYAAACGYelhAAAB20lEQVR4nO3UsW3CUBRG4Vu4dIUsKGKLBZAyQArGyAreALmlZgFKqtRMQJFBUqTIGE6RiALsSOg5MuacX/pKF0/3yBHOOeecc879sUVEnDQJzz03TNoyIlpNwrrnhkkzgOkwADgDgEsOYBE/Bz/LsuylKIpW92U+n1/J8/z18n4R8XRLAKfLqoqiaA+Hg+7M8Xi8slqtuv4KHwbwgAwAzgDgDABu9AC2261GtNlsrlRVZQAUBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAN3oA+/0+SdM0SjB6AKm6HqA0BgBnAHAGADdEAG+/H5zNZrPP3W7XDq2uaw2sLMuvy/tFxPstAXRt2VGV7tO654ZJM4DpMAA4A4AzALh/CcA555xzzj3IvgGv+knN2J8eTwAAAABJRU5ErkJggg==";
+    window.IMG_GEAR="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAS9QTFRFAAAA////AAAAenx+AAAAAAAAAAAAAAAARkdIODk6dnh6b3Fydnh6iYuNiYuNh4mLiYuNfoCCbW9xaWpsa21vaWpsaWttgYOFdnh6iIqMbG5wcXN1fX+BfX+CcHJ0bnBycnV2gYOFbW9xb3FzcXN1dHZ4eHp8fH6AfX+BgIKEgoSGhYeJh4mLiYuNi42PjI6QjY+SjpCSjpGUj5GTj5GUkJKTkpSUl5iamZudmpyem52fnZ+hoKKkqKqsrK6vr7GysLKzs7O3tLa4tre6t7i7t7m8t7q8ubu+ury+vr/Cv8DDwsTFwsTGwsXGw8XHxMbIyMnMyszOzM7QztDSz8/Rz9DS0NHT0tTW1NXX1NbY19ja19nb2Nna2Nnb2Nrc293f3t/h3+Hj4ePk5+fp6+zuz42tNgAAACJ0Uk5TAAAHIiMkLzM9Tpytr6+wsrK6vb+/wMHr7e3v7+/v8f7+/jvKobsAAADfSURBVBgZBcE/T8JAHIDh93d3paHWlqgQkAQkcdBJFxa/v3FwchRNRBIHkrZgMMDR++PzCAA8RHkDQBT0zsHPPYwKQFM+Do/T3IYyn422VgzKT4qBbWbZulwp0Divsuov7H/T9bIJonDZ1Mqm2jp7c+ZA31+W3VC9V3Uvj6d8UJn45DdJ608dm7R3+gXD88WQRIlKRC8ahfkijkM/ONMXVa/AWNrmKi8gSLW3iGJ4PalTLTqtJ9McDE4W38vu/PXgj9IBw/bD72RsDj/Eww4Ekui4jfJJJzhEACAFC4D8A1YAXZU/EmOtAAAAAElFTkSuQmCC";
 }
 String.prototype.decode=function() { return decodeURIComponent(this).replace("%27","'"); };
 String.prototype.encode=function() { return encodeURIComponent(this).replace(/'/g, "%27"); };
