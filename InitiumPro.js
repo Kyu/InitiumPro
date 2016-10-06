@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7
+// @version      0.7.1
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
@@ -17,15 +17,15 @@ var $=window.jQuery,loc={},player={};
 
 /*** INITIUM PRO OPTIONS ***/
 var IPOptions = ({
-              AUTO_GOLD: GM_getValue("ipAUTO_GOLD", true),  //auto get gold after battles and when entering a room
-              AUTO_REST: GM_getValue("ipAUTO_REST", true),  //auto rest if injured and in restable area
-             AUTO_SWING: GM_getValue("ipAUTO_SWING", true), //repeats attack after your initial attack
+              AUTO_GOLD: GM_getValue("ipAUTO_GOLD", true)+"" == "true",  //auto get gold after battles and when entering a room
+              AUTO_REST: GM_getValue("ipAUTO_REST", true)+"" == "true",  //auto rest if injured and in restable area
+             AUTO_SWING: GM_getValue("ipAUTO_SWING", true)+"" == "true", //repeats attack after your initial attack
    AUTO_SWING_THRESHOLD: GM_getValue("ipAUTO_SWING_THRESHOLD", 70), //percent of health at which to pause auto-swing   
-      AUTO_LEAVE_FORGET: GM_getValue("ipAUTO_LEAVE_FORGET", false), //automatically clicks 'Leave and Forget' after a battle
+      AUTO_LEAVE_FORGET: GM_getValue("ipAUTO_LEAVE_FORGET", false)+"" == "true", //automatically clicks 'Leave and Forget' after a battle
               AUTO_FLEE: GM_getValue("ipAUTO_FLEE", 0),    //percent of health to flee automatically. 0 turns it off
-    AUTO_CONFIRM_POPUPS: GM_getValue("ipAUTO_CONFIRM_POPUPS", false), //confirms popups like camp name so you can keep your fingers to the metal!
-           HIDE_VERSION: GM_getValue("ipHIDE_VERSION", true), //this will hide pro icon with the version number (you jerk)
-            HIDE_NEARBY: GM_getValue("ipHIDE_NEARBY", true), //this hides and prevents nearby items list from pulling every request
+    AUTO_CONFIRM_POPUPS: GM_getValue("ipAUTO_CONFIRM_POPUPS", false)+"" == "true", //confirms popups like camp name so you can keep your fingers to the metal!
+           HIDE_VERSION: GM_getValue("ipHIDE_VERSION", true)+"" == "true", //this will hide pro icon with the version number (you jerk)
+            HIDE_NEARBY: GM_getValue("ipHIDE_NEARBY", true)+"" == "true", //this hides and prevents nearby items list from pulling every request
            COMBAT_DELAY: GM_getValue("ipCOMBAT_DELAY", 500), //this delays combat
          INSTANCE_DELAY: GM_getValue("ipINSTANCE_DELAY", 1000), //this hides and prevents nearby items list from pulling every request
 
