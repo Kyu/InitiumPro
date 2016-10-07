@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7.2
+// @version      0.7.3
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
@@ -28,6 +28,7 @@ var IPOptions = ({
             HIDE_NEARBY: GM_getValue("ipHIDE_NEARBY", true)+"" == "true", //this hides and prevents nearby items list from pulling every request
            COMBAT_DELAY: +GM_getValue("ipCOMBAT_DELAY", 500), //this delays combat
          INSTANCE_DELAY: +GM_getValue("ipINSTANCE_DELAY", 1000), //this hides and prevents nearby items list from pulling every request
+      PRELOAD_MERCHANTS: +GM_getValue("ipPRELOAD_MERCHANTS", 5), //this auto-loads the first specified number of merchants when pulling up the nearby stores list
 
     // ChangeSetting function. Sets the underlying property value and stores it in browser storage DB
     ChangeSetting: function(settingName, newValue)
@@ -85,6 +86,8 @@ function resetDefaultSettings()
     };
 })($);
 
+window.MERCHANT_CACHE = {};
+window.ITEM_CACHE = {};
 var krill=getThisPartyStarted();
 
 //EXTRA HOTKEYS: C for create campsite, H for show hidden paths
@@ -97,23 +100,33 @@ document.addEventListener('keydown', function(e) {
 function loadShopItemDetails() {
     window.FLAG_LOADSHOPITEMS=true;
     var itemsLoaded = setInterval(function() {
+        var saleItems = $(".saleItem").length;
+        if(saleItems.length == 0) return;
         var numSold=$(".saleItem-sold").length;
         if (numSold) {
             //hide sold toggle
             $(".main-item-filter").append("<div style='padding:15px 1px;float:right;'><a id='toggle-sold-items'>Hide "+numSold+" sold items</a></div>");
-            $("#toggle-sold-items").bind('click',function() {
-                $(this).text($(this).text().substring(0,4) === "Hide"?"Show "+numSold+" sold items":"Hide "+numSold+" sold items");
-                $(".saleItem-sold").parent().parent().parent().toggleClass("hidden");
+            $("#toggle-sold-items").bind("click",function() {
+                var doHide = $(this).text().substring(0,4) === "Hide";
+                $(this).text(doHide ? "Show "+numSold+" sold items":"Hide "+numSold+" sold items");
+                $(".saleItem-sold").parents(".saleItem").toggleClass("hidden", doHide);
             });
+        }
 
-            var shopItems=$(".saleItem");
-            for(var i=0;i<shopItems.length;i++) {
-                var itemId=$(shopItems[i]).find(".clue").attr("rel").split("=")[1],
-                    itemImg=$(shopItems[i]).find(".clue").find("img").attr("src"),
-                    itemCost=$(shopItems[i]).find(".main-item > span:eq(0)").text(),
-                    itemBuyLink=$(shopItems[i]).find("a:eq(1)").attr("onclick");
-                $(shopItems[i]).append("<div class='shop-item-stats table' id='shop-item-container"+itemId+"'><div class='loading'>Loading item stats... <img src='/javascript/images/wait.gif'></div></div>");
+        var shopItems=$(".saleItem");
+        for(var i=0;i<shopItems.length;i++) {
+            var itemId=$(shopItems[i]).find(".clue").attr("rel").split("=")[1],
+                itemImg=$(shopItems[i]).find(".clue").find("img").attr("src"),
+                itemCost=$(shopItems[i]).find(".main-item > span:eq(0)").text(),
+                itemBuyLink=$(shopItems[i]).find("a:eq(1)").attr("onclick");
+            $(shopItems[i]).append("<div class='shop-item-stats table' id='shop-item-container"+itemId+"'><div class='loading'>Loading item stats... <img src='/javascript/images/wait.gif'></div></div>");
 
+            if(window.ITEM_CACHE[itemId])
+            {
+                $("#shop-item-container"+itemId).html(window.ITEM_CACHE[itemId]);
+            }
+            else
+            {
                 $.ajax({
                     url: "viewitemmini.jsp?itemId="+itemId, type: "GET",
                     itemId: itemId,
@@ -137,12 +150,13 @@ function loadShopItemDetails() {
                         var statValue=itemStats[Object.keys(itemStats)[i]];
                         $("#shop-item-"+this.itemId).append("<div><span>"+statName+":</span> <span>"+statValue+"</span></div>");
                     }
+                    window.ITEM_CACHE[this.itemId] = $("#shop-item-container"+this.itemId).html();
                     return true;
                 });
             }
-            window.FLAG_LOADSHOPITEMS=false;
-            clearInterval(itemsLoaded);
         }
+        window.FLAG_LOADSHOPITEMS=false;
+        clearInterval(itemsLoaded);
     }, 1000);
 }
 
@@ -151,26 +165,38 @@ function loadLocalMerchantDetails() {
     window.FLAG_LOADSHOPS=true;
     var shopsLoaded = setInterval(function() {
         if ($('.main-merchant-container').length) {
-            var localMerchants=$(".main-merchant-container");
-            for(var i=0;i<localMerchants.length;i++) {
-                var charId=$(localMerchants[i]).find("a").attr("onclick").slice(10,-1);
-                $(localMerchants[i]).append("<div class='merchant-inline-overview' id='store-overview-"+charId+"'><div class='shop-overview'><a id='loadShop"+charId+"'>🔍</a></div></div>");
-                $("#loadShop"+charId).on("click", function(event){
-                    var shopId = event.target.id.substring(8);
+            $(".main-merchant-container").on("click", "a.load-shop", function(event){
+                var shopId = $(event.currentTarget).attr("ref");
+                $(event.currentTarget).replaceWith("Loading store overview... <img src='/javascript/images/wait.gif'>");
                 $.ajaxQueue({
                     url: "/odp/ajax_viewstore.jsp?characterId="+shopId+"&ajax=true",
                     shopId: shopId,
                 }).done(function(data) {
-                    var shopItemSummary="",items={},itemData=$(data).find(".clue");
+                    var shopItemSummary="<hr>",items={},itemData=$(data).find(".clue");
                     for(var i=0;i<itemData.length;i++) { //get uniques
                         var itemName=$(itemData[i]).text(),itemPic=$(itemData[i]).find("img");
                         if(!items[itemName]) { items[itemName]=[{name:itemName,img:itemPic.attr("src")}]; }
                         else { items[itemName].push({name:itemName,img:itemPic.attr("src")});}
                     }
                     for(var item in items) { shopItemSummary+="<div class='shop-overview-item'><img src='"+items[item][0].img+"' width='18px'> ("+items[item].length+"x) <span style='color:#DDD;'>"+items[item][0].name+"</span></div>"; }
-                    $("#store-overview-"+this.shopId+" .shop-overview").html("<hr>"+shopItemSummary);
-                    });
+                    $("#store-overview-"+this.shopId+" .shop-overview").html(shopItemSummary);
+                    window.MERCHANT_CACHE[this.shopId] = shopItemSummary;
                 });
+            });
+            var localMerchants=$(".main-merchant-container");
+            for(var i=0;i<localMerchants.length;i++) {
+                var charId=$(localMerchants[i]).find("a").attr("onclick").slice(10,-1);
+                $(localMerchants[i]).append("<div class='merchant-inline-overview' id='store-overview-"+charId+"'><div class='shop-overview'><a class='load-shop' ref="+charId+">🔍</a></div></div>");
+                
+                if(window.MERCHANT_CACHE[charId])
+                {
+                    $("#store-overview-"+charId+" .shop-overview").html(window.MERCHANT_CACHE[charId]);
+                }
+                else
+                {
+                     if(i<IPOptions.PRELOAD_MERCHANTS)
+                         $(".main-merchant-container a.load-shop[ref="+charId+"]").click();
+                }
             }
             window.FLAG_LOADSHOPS=false;
             clearInterval(shopsLoaded);
@@ -538,6 +564,21 @@ function getThisPartyStarted() {
     observe(["#instanceRespawnWarning",".popup_confirm_yes","#popups","#page-popup-root"],{childList:true,characterData:true,attributes:true,subtree:true});
     //finish up when page ready
     $(document).ready(function () {
+        $("#page-popup-root").on("click", ".page-popup-Reload", function(event){
+            var reloadPopup = $(event.target).parent().find(".page-popup:last");
+            console.log(reloadPopup);
+            if(reloadPopup.find("div[src^='/odp/ajax_viewstore.jsp']").length > 0)
+            {
+                console.log("Reloading store items...");
+                window.ITEM_CACHE = {};
+                setTimeout(loadShopItemDetails, 500);
+            }
+            else if(reloadPopup.find("div[src^='locationmerchantlist.jsp']").length > 0){
+                console.log("Reloading merchant list...");
+                window.MERCHANT_CACHE = {};
+                setTimeout(loadLocalMerchantDetails, 500);
+            }
+        });
         player=getPlayerStats();
         loc=getLocation();
         updateLayouts();
