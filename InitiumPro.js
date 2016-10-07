@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7.3
+// @version      0.7.4
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
@@ -252,7 +252,7 @@ function keepPunching() {
 //get hotkeys from buttons and put 'em on the map overlay
 function putHotkeysOnMap() {
     var i=0,keys={},otherExits={},mapOverlayDirs=[],
-        directions=$('body').find('a[onclick^="doGoto"]');
+        directions=$('body').find('a[onclick^="doGoto"]').not(".main-button-icon");
     for(i=0;i<directions.length;i++) {
         var shortcut=$(directions[i]).find(".shortcut-key").text(),
             path=$(directions[i]).attr("onclick").split(",")[1].replace(")","");
@@ -571,6 +571,8 @@ function getThisPartyStarted() {
             {
                 console.log("Reloading store items...");
                 window.ITEM_CACHE = {};
+                var contentUrlParams = getUrlParams(reloadPopup.find("div[src^='/odp/ajax_viewstore.jsp']").attr("src"));
+                if(contentUrlParams["characterId"]) delete window.MERCHANT_CACHE[contentUrlParams["characterId"]];
                 setTimeout(loadShopItemDetails, 500);
             }
             else if(reloadPopup.find("div[src^='locationmerchantlist.jsp']").length > 0){
@@ -624,10 +626,12 @@ function updateLayouts() {
     $(".main-buttonbox").find("br").remove().appendTo(".main-page-banner-image");
     $(".main-button").removeClass("main-button").each(function(i,e){
         var curButton = $(e);
-        curButton.add(curButton.prev(".main-forgetPath")).wrapAll("<div class='main-button-half action-button'></div>");
+        curButton.add(curButton.prev(".main-forgetPath")).add(curButton.prev(".main-button-icon")).wrapAll("<div class='main-button-half action-button'></div>");
     });
     $(".main-buttonbox > center").wrap("<div class='main-button-half action-button'></div>");
-    $("a[shortcut='69']").parent().append($(".main-button-icon"));
+    $(".main-button-icon").each(function (i, e) { $(e).next(".action-button").append($(e)); });
+    //$("a[shortcut='69']").parent().append($([shortcut=87]"));
+    $(".main-button-icon[shortcut=87]").clone().addClass("search-nearby").removeClass("main-button-icon").appendTo(".main-banner");
     //Add loc type to header
     if(loc.type)$(".header-location").append("<span style='margin-left:12px;color:red;'>("+loc.type+")</span>");
     //show 'em that pro is active!
@@ -657,6 +661,7 @@ function updateCSS() {
                      ".saleItem .clue img { display:none; }"+
                      ".banner-shadowbox { transition:1s ease; }"+
                      "div[src]>div>br { display:none!important; }"+
+                     ".search-nearby { position: absolute;top: 145px;left: 15px;text-shadow: 1px 1px 3px rgba(0, 0, 0, 1); }"+
                      //InitiumPro custom elements
                      "#gear_icon { min-width:18px;margin-right:6px; }" +
                      "#InitiumProSettings .header { margin-top:-15px;margin-bottom:15px; }" +
@@ -722,4 +727,4 @@ function removeElement(el) {$(el).fadeOut(300, function() { $(this).remove(); })
 function showMessage(msg,color) { $(".show-message").remove();$(".main-dynamic-content-box").first().append("<div class='show-message' style=\"color:"+(color||"white")+";padding-top:15px;\">"+msg+"</div>");}
 function combatMessage(msg,type) { return $(".main-page:eq(1) > p:eq(0)").append("<div style='margin:10px 0px;'><span style='color:orange;'>["+(type||"INFO")+"]</span>&nbsp;"+msg+"</div>"); }
 function pulse(elName,color) { $(elName).css({"background-color":color}).fadeTo(400, 0.5, function() { $(elName).fadeTo(300, 1).css({"background-color":""}); }); }
-function getUrlParams() { var params={};window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str,key,value) { params[key] = value; });return params;}
+function getUrlParams(urlString) { var params={};urlString=urlString||window.location.search;urlString.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str,key,value) { params[key] = value; });return params;}
