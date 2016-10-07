@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7.1
+// @version      0.7.2
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
@@ -153,8 +153,10 @@ function loadLocalMerchantDetails() {
         if ($('.main-merchant-container').length) {
             var localMerchants=$(".main-merchant-container");
             for(var i=0;i<localMerchants.length;i++) {
-                var shopId=$(localMerchants[i]).find("a").attr("onclick").slice(10,-1);
-                $(localMerchants[i]).append("<div class='merchant-inline-overview' id='store-overview-"+shopId+"'><div class='shop-overview'>Loading store overview... <img src='/javascript/images/wait.gif'></div></div>");
+                var charId=$(localMerchants[i]).find("a").attr("onclick").slice(10,-1);
+                $(localMerchants[i]).append("<div class='merchant-inline-overview' id='store-overview-"+charId+"'><div class='shop-overview'><a id='loadShop"+charId+"'>🔍</a></div></div>");
+                $("#loadShop"+charId).on("click", function(event){
+                    var shopId = event.target.id.substring(8);
                 $.ajaxQueue({
                     url: "/odp/ajax_viewstore.jsp?characterId="+shopId+"&ajax=true",
                     shopId: shopId,
@@ -167,6 +169,7 @@ function loadLocalMerchantDetails() {
                     }
                     for(var item in items) { shopItemSummary+="<div class='shop-overview-item'><img src='"+items[item][0].img+"' width='18px'> ("+items[item].length+"x) <span style='color:#DDD;'>"+items[item][0].name+"</span></div>"; }
                     $("#store-overview-"+this.shopId+" .shop-overview").html("<hr>"+shopItemSummary);
+                    });
                 });
             }
             window.FLAG_LOADSHOPS=false;
