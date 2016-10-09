@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7.5
+// @version      0.7.6
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
@@ -29,7 +29,7 @@ var IPOptions = ({
            COMBAT_DELAY: +GM_getValue("ipCOMBAT_DELAY", 500), //this delays combat
          INSTANCE_DELAY: +GM_getValue("ipINSTANCE_DELAY", 1000), //this hides and prevents nearby items list from pulling every request
       PRELOAD_MERCHANTS: +GM_getValue("ipPRELOAD_MERCHANTS", 5), //this auto-loads the first specified number of merchants when pulling up the nearby stores list
-
+        ANCHOR_PARTYBOX: GM_getValue("ipANCHOR_PARTYBOX", true)+"" == "true",
     // ChangeSetting function. Sets the underlying property value and stores it in browser storage DB
     ChangeSetting: function(settingName, newValue)
     {
@@ -51,6 +51,7 @@ var IPOptions = ({
         this.ChangeSetting("HIDE_NEARBY", true);
         this.ChangeSetting("COMBAT_DELAY", 500);
         this.ChangeSetting("INSTANCE_DELAY", 1000);
+        this.ChangeSetting("ANCHOR_PARTYBOX", true);
     }
 });
 
@@ -211,7 +212,7 @@ function loadLocalMerchantDetails() {
 function keepPunching() {
     //for a more CircleMUD feel
     if(IPOptions.AUTO_SWING) {
-        if((loc.type==="in combat!" || loc.type==="in a fight!") && player.health>IPOptions.AUTO_FLEE)
+        if((loc.type==="in combat!" || loc.type==="in a fight!") && window.urlParams.type==="attack" && player.health>IPOptions.AUTO_FLEE)
         {
             if(player.health<IPOptions.AUTO_SWING_THRESHOLD)
             {
@@ -626,8 +627,11 @@ function updateLayouts() {
         curButton.add(curButton.prev(".main-forgetPath")).add(curButton.prev(".main-button-icon")).wrapAll("<div class='main-button-half action-button'></div>");
     });
     // Party box.
-    $(".main-splitScreen").has("h4:contains('Your party')").addClass("party-box").find(".main-splitScreen-2columns").addClass("party-row");
-    $(".party-box > .boldbox > a").css("float", "").insertAfter(".party-box h4").after("<hr/>");
+    if(IPOptions.ANCHOR_PARTYBOX)
+    {
+        $(".main-splitScreen").has("h4:contains('Your party')").addClass("party-box").find(".main-splitScreen-2columns").addClass("party-row");
+        $(".party-box > .boldbox > a").css("float", "").insertAfter(".party-box h4").after("<hr/>");
+    }
     $(".main-buttonbox > center").wrap("<div class='main-button-half action-button'></div>");
     $(".main-button-icon").each(function (i, e) { $(e).next(".action-button").append($(e)); });
     //$("a[shortcut='69']").parent().append($([shortcut=87]"));
