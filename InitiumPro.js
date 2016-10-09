@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7.4
+// @version      0.7.5
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
@@ -101,11 +101,13 @@ function loadShopItemDetails() {
     window.FLAG_LOADSHOPITEMS=true;
     var itemsLoaded = setInterval(function() {
         var saleItems = $(".saleItem").length;
-        if(saleItems.length == 0) return;
+        if(saleItems == 0) return;
         var numSold=$(".saleItem-sold").length;
         if (numSold) {
             //hide sold toggle
-            $(".main-item-filter").append("<div style='padding:15px 1px;float:right;'><a id='toggle-sold-items'>Hide "+numSold+" sold items</a></div>");
+            if($("#soldItems-minimize").length) $("#soldItems-minimize").replaceWith("<a id='toggle-sold-items'>Hide "+numSold+" sold items</a>");
+            else $(".main-item-filter").append("<div style='padding:15px 1px;float:right;'><a id='toggle-sold-items'>Hide "+numSold+" sold items</a></div>");
+            
             $("#toggle-sold-items").bind("click",function() {
                 var doHide = $(this).text().substring(0,4) === "Hide";
                 $(this).text(doHide ? "Show "+numSold+" sold items":"Hide "+numSold+" sold items");
@@ -143,7 +145,9 @@ function loadShopItemDetails() {
                     $("#shop-item-container"+this.itemId).html("<div class='row' id='shop-item-row-"+this.itemId+"'>"+
                                                                "<div class='cell'><img src='"+this.itemImg+"'></div>"+
                                                                "<div class='cell' id='shop-item-"+this.itemId+"'></div>"+
-                                                               "<div class='cell shop-buy-button' onclick='"+this.itemBuyLink+"'>BUY<br/><span style='font-size:12px;'><img src='images/dogecoin-18px.png' class='small-dogecoin-icon' border='0/'>&nbsp;"+this.itemCost+"</span></div>"+
+                                                               (this.itemBuyLink ? 
+                                                                ("<div class='cell shop-buy-button' onclick='"+this.itemBuyLink+"'>BUY<br/><span style='font-size:12px;'><img src='images/dogecoin-18px.png' class='small-dogecoin-icon' border='0/'>&nbsp;"+this.itemCost+"</span></div>") 
+                                                                : "") +
                                                                "</div>");
                     for(var i=0;i<Object.keys(itemStats).length;i++) {
                         var statName=Object.keys(itemStats)[i];
@@ -207,25 +211,18 @@ function loadLocalMerchantDetails() {
 function keepPunching() {
     //for a more CircleMUD feel
     if(IPOptions.AUTO_SWING) {
-        if(player.health<IPOptions.AUTO_SWING_THRESHOLD)
+        if((loc.type==="in combat!" || loc.type==="in a fight!") && player.health>IPOptions.AUTO_FLEE)
         {
-            combatMessage("Your health is below the auto-swing threshold", "AUTO-SWING");
-            return;
-        }
-        
-        if(loc.type==="in combat!" && window.urlParams.type==="attack" && player.health>IPOptions.AUTO_FLEE) 
-        {
+            if(player.health<IPOptions.AUTO_SWING_THRESHOLD)
+            {
+                combatMessage("Your health is below the auto-swing threshold", "AUTO-SWING");
+                return;
+            }
+            var toDelay = loc.type==="in combat!" ? IPOptions.COMBAT_DELAY : IPOptions.INSTANCE_DELAY;
             setTimeout(function() {
                 if(window.urlParams.hand==="RightHand")  window.combatAttackWithRightHand();  else  window.combatAttackWithLeftHand();
                 combatMessage("Attacking with "+window.urlParams.hand,"AUTO-SWING");
-            }, IPOptions.COMBAT_DELAY);
-        }
-        if(loc.type==="in a fight!" && window.urlParams.type==="attack" && player.health>IPOptions.AUTO_FLEE) 
-        {
-            setTimeout(function() {
-                if(window.urlParams.hand==="RightHand")  window.combatAttackWithRightHand();  else  window.combatAttackWithLeftHand();
-                combatMessage("Attacking with "+window.urlParams.hand,"AUTO-SWING");
-            }, IPOptions.INSTANCE_DELAY);
+            }, toDelay);
         }
     }
     if(IPOptions.AUTO_FLEE>0) {
@@ -628,10 +625,17 @@ function updateLayouts() {
         var curButton = $(e);
         curButton.add(curButton.prev(".main-forgetPath")).add(curButton.prev(".main-button-icon")).wrapAll("<div class='main-button-half action-button'></div>");
     });
+    // Party box.
+    $(".main-splitScreen").has("h4:contains('Your party')").addClass("party-box").find(".main-splitScreen-2columns").addClass("party-row");
+    $(".party-box > .boldbox > a").css("float", "").insertAfter(".party-box h4").after("<hr/>");
     $(".main-buttonbox > center").wrap("<div class='main-button-half action-button'></div>");
     $(".main-button-icon").each(function (i, e) { $(e).next(".action-button").append($(e)); });
     //$("a[shortcut='69']").parent().append($([shortcut=87]"));
     $(".main-button-icon[shortcut=87]").clone().addClass("search-nearby").removeClass("main-button-icon").appendTo(".main-banner");
+    // Combat text comes after the main buttonbox. Problem is that there were floated elements before, so the text
+    // can possibly occupy the space after the buttonbox. Do not allow that. Throw an empty div that clears floats after it.
+    if(/combat.jsp/g.test(window.location.href))
+        $(".main-buttonbox").append("<div style='clear:both;'></div>");
     //Add loc type to header
     if(loc.type)$(".header-location").append("<span style='margin-left:12px;color:red;'>("+loc.type+")</span>");
     //show 'em that pro is active!
@@ -663,6 +667,8 @@ function updateCSS() {
                      "div[src]>div>br { display:none!important; }"+
                      ".search-nearby { position: absolute;top: 145px;left: 15px;text-shadow: 1px 1px 3px rgba(0, 0, 0, 1); }"+
                      //InitiumPro custom elements
+                     "div.main-splitScreen.party-box { position: absolute;top: 0px;left: 0px;width: 190px; }"+
+                     "div.main-splitScreen.party-box .party-row { margin: 5px auto; }"+
                      "#gear_icon { min-width:18px;margin-right:6px; }" +
                      "#InitiumProSettings .header { margin-top:-15px;margin-bottom:15px; }" +
                      "#InitiumProSettings .footer .cell { vertical-align:bottom; }" +
@@ -675,7 +681,7 @@ function updateCSS() {
                      ".torched { filter:brightness(2); }"+
                      "#light { transition:.2s ease;filter:brightness(.3);position:absolute;top:115px;margin-left:710px;z-index:99999999; }"+
                      "#light:hover { filter:brightness(1); }"+
-                     "#toggle-sold-items { padding:15px 1px;float:right; }" +
+                     "#toggle-sold-items { padding:15px 1px; }" +
                      ".merchant-inline-overview { padding:5px 0px 10px 5px; }"+
                      ".main-merchant-container .main-item { margin-top:25px; }"+
                      ".shop-overview { color:#999;margin-bottom:20px; }"+
@@ -696,7 +702,7 @@ function updateCSS() {
                      ".blue-box-full-top { margin: 15px 0px 0px 10px;height:10px;background:url(/images/ui/large-popup-top.jpg);background-position-y:-5px; }"+
                      ".blue-box-full-bottom { margin: 0px 0px 20px 10px;height:10px;background:url(/images/ui/large-popup-bottom.jpg); background-position-y:-5px; }"+
                      "#reload-local-items-container { height:25px;float:right;padding-right:5px; }"+
-                     ".shop-item-stats { transition:.2s ease;border:1px solid #404040;min-height:70px;padding:10px;margin:1px;width:700px;border-radius:10px;background:rgba(0,0,0,.2); }"+
+                     ".shop-item-stats { transition:.2s ease;border:1px solid #404040;min-height:70px;padding:10px;margin:1px;width:inherit;border-radius:10px;background:rgba(0,0,0,.2); }"+
                      ".shop-item-stats:hover { background:rgba(0,0,0,.15); }"+
                      ".shop-item-stats .cell { vertical-align:middle; }"+
                      ".shop-item-stats .cell > div { height:18px;margin-left:10px;float:left;color:white; }"+
@@ -705,7 +711,7 @@ function updateCSS() {
                      ".shop-item-stats .row > .cell:first-of-type) { width:80px;padding-right:5px; }"+
                      ".shop-item-stats .cell:not(.shop-buy-button) img { transition:.2s ease;filter:drop-shadow(4px 4px 6px rgba(0,0,0,.85));width:50px;padding:0px 10px; }"+
                      ".shop-item-stats .cell:not(.shop-buy-button) img:hover { filter:brightness(1.2) drop-shadow(1px 2px 8px rgba(0,0,0,1));transform: rotate(-5deg); }"+
-                     ".shop-buy-button { transition: .2s ease;width:85px;text-align:center;border:1px solid rgba(173,173,173,0.1);border-radius:10px;background:rgba(255,255,255,0.1);}"+
+                     ".shop-buy-button { transition: .2s ease;width:85px;text-align:center;border:1px solid rgba(173,173,173,0.1);border-radius:10px;background:rgba(255,255,255,0.1);cursor:pointer;}"+
                      ".shop-buy-button:hover { background:rgba(173,173,173,0.2); }"+
                      //stat box icons
                      "#pro-stats { width:160px; height:17px; font-size:10.5px; text-align:left; margin:-1px 0px 0px -5px; font-family:sans-serif; text-shadow:1px 1px 2px rgba(0, 0, 0, 1); } #pro-stats img { width:9px;height:9px;margin:3px 3px 0px 3px;vertical-align:sub; border:1px solid #AAAAAA;background:rgba(0,0,0,.5);border-radius:4px;padding:2px;/*-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.2));filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.2));*/} #pro-stats span { padding:0px 4px 0px 0px; }"+
