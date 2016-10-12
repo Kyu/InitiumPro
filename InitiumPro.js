@@ -55,6 +55,37 @@ var IPOptions = ({
     }
 });
 
+var Counter = function(id){
+    var _counter = +GM_getValue("ipCnt" + id, 0);
+    console.log(id);
+    this.increment = function(){
+        _counter++;
+        GM_setValue("ipCnt" + id, _counter);
+        return _counter;
+    };
+    
+    this.decrement = function()
+    {
+        _counter--;
+        GM_setValue("ipCnt" + id, _counter);
+        return _counter;
+    };
+    
+    this.reset = function() {
+        GM_setValue("ipCnt" + id, 0);
+        _counter = 0;
+        return _counter;
+    };
+    
+    this.current = function()
+    {
+        _counter = +GM_getValue("ipCnt" + id, 0);
+        return _counter;
+    };
+    
+    return this;
+};
+
 function resetDefaultSettings()
 {
     IPOptions.DefaultSettings();
@@ -87,13 +118,15 @@ function resetDefaultSettings()
     };
 })($);
 
+window.CANCEL_ACTION = false;
 window.MERCHANT_CACHE = {};
 window.ITEM_CACHE = {};
 var krill=getThisPartyStarted();
 
-//EXTRA HOTKEYS: C for create campsite, H for show hidden paths
+//EXTRA HOTKEYS: C for create campsite, H for show hidden paths, Escape to cancel auto-actions
 document.addEventListener('keydown', function(e) {
     if(e.srcElement.nodeName!='INPUT') {
+        if(e.key==="Escape") window.CANCEL_ACTION = true;
         if(e.key==="c") window.createCampsite();
         if(e.key==="h")window.location.replace("/main.jsp?showHiddenPaths=true"); }}, false);
 
@@ -102,7 +135,7 @@ function loadShopItemDetails() {
     window.FLAG_LOADSHOPITEMS=true;
     var itemsLoaded = setInterval(function() {
         var saleItems = $(".saleItem").length;
-        if(saleItems == 0) return;
+        if(saleItems === 0) return;
         var numSold=$(".saleItem-sold").length;
         if (numSold) {
             //hide sold toggle
@@ -221,6 +254,7 @@ function keepPunching() {
             }
             var toDelay = loc.type==="in combat!" ? IPOptions.COMBAT_DELAY : IPOptions.INSTANCE_DELAY;
             setTimeout(function() {
+                if(window.CANCEL_ACTION) { showMessage("User cancelled auto swing.", "blue"); return; }
                 if(window.urlParams.hand==="RightHand")  window.combatAttackWithRightHand();  else  window.combatAttackWithLeftHand();
                 combatMessage("Attacking with "+window.urlParams.hand,"AUTO-SWING");
             }, toDelay);
@@ -236,6 +270,7 @@ function keepPunching() {
     if(IPOptions.AUTO_LEAVE_FORGET && loc.type==="combat site") {
         if(IPOptions.AUTO_GOLD) {
             setTimeout(function() {
+                if(window.CANCEL_ACTION) { showMessage("User cancelled auto leave/forget.", "blue"); return; }
                 if(window.gotGold===true) {
                     $('a[onclick^="leaveAndForgetCombatSite"]').click();
                 } else {
@@ -476,7 +511,7 @@ function getLocation() {
 //get player stats and details
 function getPlayerStats() {
     var hp=$("#hitpointsBar").text().split("/");
-    return { charachterId:window.characterId,
+    return { characterId:window.characterId,
             verifyCode:window.verifyCode,
             name:$("a[rel^=#profile]:eq(0)").text(),
             maxhp:parseInt(hp[1]),
@@ -540,7 +575,6 @@ function statDisplay() {
                                                              "<img src='"+window.IMG_STAT_POTION+"'><span>"+$( stats[2] ).text().split(" ")[0]+"</span>"+//int
                                                              "</a></div>");
         $('.header-stats a:nth-child(2)').children().html("Inv<span style=\"color:#AAA;margin-left:4px;margin-right:-5px;\">("+$( stats[3] ).text().split(" ")[0]+")</span> ");//carry
-
     });
 }
 //utility stuff
@@ -570,7 +604,7 @@ function getThisPartyStarted() {
                 console.log("Reloading store items...");
                 window.ITEM_CACHE = {};
                 var contentUrlParams = getUrlParams(reloadPopup.find("div[src^='/odp/ajax_viewstore.jsp']").attr("src"));
-                if(contentUrlParams["characterId"]) delete window.MERCHANT_CACHE[contentUrlParams["characterId"]];
+                if(contentUrlParams.characterId) delete window.MERCHANT_CACHE[contentUrlParams.characterId];
                 setTimeout(loadShopItemDetails, 500);
             }
             else if(reloadPopup.find("div[src^='locationmerchantlist.jsp']").length > 0){
@@ -579,7 +613,11 @@ function getThisPartyStarted() {
                 setTimeout(loadLocalMerchantDetails, 500);
             }
         });
+        
         player=getPlayerStats();
+        window.HITCOUNTER = new Counter(player.characterId);
+        (function() { var oldVersion = window.combatAttackWithLeftHand; window.combatAttackWithLeftHand = function() { window.HITCOUNTER.increment(); result = oldVersion.apply(this, arguments); return result; };})();
+        (function() { var oldVersion = window.combatAttackWithRightHand; window.combatAttackWithRightHand = function() { window.HITCOUNTER.increment(); result = oldVersion.apply(this, arguments); return result; };})();
         loc=getLocation();
         updateLayouts();
         putHotkeysOnMap();
@@ -646,6 +684,10 @@ function updateLayouts() {
     if(!IPOptions.HIDE_VERSION)$(".header").append("<div id='initium-pro-version'><a href='https://github.com/hey-nails/InitiumPro' target='_blank'><img src='"+window.IMG_PRO+"'><span>v "+GM_info.script.version+"</span></a></div>");
     //the candle
     $(".header").append("<div id='light'><a onclick='$(\".banner-shadowbox\").toggleClass(\"torched\");'><img src='"+window.IMG_CANDLE+"'></a></div>");
+    //hit counter
+    console.log(window.HITCOUNTER.current());
+    $(".main-banner").append("<div id='hitCounter'><span id='hitAmount'>Attacks: " + window.HITCOUNTER.current() + "</span><br/><span><a title='Decrement counter' id='decrement'>⊖</a>/<a title='Reset counter' id='reset'>⊗</a>/<a title='Increment counter' id='increment'>⊕</a></span></div>");
+    $("#hitCounter").on("click", "a", function() { $("#hitAmount").html("Attacks: " + window.HITCOUNTER[this.id]()); });
 }
 function updateCSS() {
     $("head").append("<style>"+
@@ -703,6 +745,7 @@ function updateCSS() {
                      "#local-item-summary .cell:nth-of-type(3) { padding-right:18px;color:#FFF; }"+
                      "#local-item-summary .cell:nth-of-type(4) a { padding-right:13px;color:#e69500; }"+
                      "#local-item-summary .cell:nth-of-type(5) a { color:#666666; }"+
+                     "#hitCounter { position:absolute; top:0px; right:300px;text-align:center; } #hitCounter > * { position:relative; display:inline-block; padding-right:4px; }"+
                      ".blue-box-full-top { margin: 15px 0px 0px 10px;height:10px;background:url(/images/ui/large-popup-top.jpg);background-position-y:-5px; }"+
                      ".blue-box-full-bottom { margin: 0px 0px 20px 10px;height:10px;background:url(/images/ui/large-popup-bottom.jpg); background-position-y:-5px; }"+
                      "#reload-local-items-container { height:25px;float:right;padding-right:5px; }"+
