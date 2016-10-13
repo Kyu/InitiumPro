@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7.6
+// @version      0.7.7
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
@@ -17,19 +17,22 @@ var $=window.jQuery,loc={},player={};
 
 /*** INITIUM PRO OPTIONS ***/
 var IPOptions = ({
+    /*** AUTO ACTION SETTINGS ***/
               AUTO_GOLD: GM_getValue("ipAUTO_GOLD", true)+"" == "true",  //auto get gold after battles and when entering a room
-              AUTO_REST: GM_getValue("ipAUTO_REST", true)+"" == "true",  //auto rest if injured and in restable area
-             AUTO_SWING: GM_getValue("ipAUTO_SWING", true)+"" == "true", //repeats attack after your initial attack
-   AUTO_SWING_THRESHOLD: +GM_getValue("ipAUTO_SWING_THRESHOLD", 70), //percent of health at which to pause auto-swing   
-      AUTO_LEAVE_FORGET: GM_getValue("ipAUTO_LEAVE_FORGET", false)+"" == "true", //automatically clicks 'Leave and Forget' after a battle
               AUTO_FLEE: +GM_getValue("ipAUTO_FLEE", 0),    //percent of health to flee automatically. 0 turns it off
+             AUTO_SWING: GM_getValue("ipAUTO_SWING", true)+"" == "true", //repeats attack after your initial attack
+   AUTO_SWING_THRESHOLD: +GM_getValue("ipAUTO_SWING_THRESHOLD", 70), //percent of health at which to pause auto-swing
+           COMBAT_DELAY: +GM_getValue("ipCOMBAT_DELAY", 500), //this delays combat site combat
+         INSTANCE_DELAY: +GM_getValue("ipINSTANCE_DELAY", 1000), //this delays instance combat
+              AUTO_REST: GM_getValue("ipAUTO_REST", true)+"" == "true",  //auto rest if injured and in restable area
+      AUTO_LEAVE_FORGET: GM_getValue("ipAUTO_LEAVE_FORGET", false)+"" == "true", //automatically clicks 'Leave and Forget' after a battle
     AUTO_CONFIRM_POPUPS: GM_getValue("ipAUTO_CONFIRM_POPUPS", false)+"" == "true", //confirms popups like camp name so you can keep your fingers to the metal!
+    /*** CUSTOM UI SETTINGS ***/
+        ANCHOR_PARTYBOX: GM_getValue("ipANCHOR_PARTYBOX", true)+"" == "true", //indicates whether to reposition the party box to top-left corner
+           HIDE_COUNTER: GM_getValue("ipHIDE_COUNTER", false)+"" == "true", //this will hide the attack counter
            HIDE_VERSION: GM_getValue("ipHIDE_VERSION", true)+"" == "true", //this will hide pro icon with the version number (you jerk)
             HIDE_NEARBY: GM_getValue("ipHIDE_NEARBY", true)+"" == "true", //this hides and prevents nearby items list from pulling every request
-           COMBAT_DELAY: +GM_getValue("ipCOMBAT_DELAY", 500), //this delays combat
-         INSTANCE_DELAY: +GM_getValue("ipINSTANCE_DELAY", 1000), //this hides and prevents nearby items list from pulling every request
       PRELOAD_MERCHANTS: +GM_getValue("ipPRELOAD_MERCHANTS", 5), //this auto-loads the first specified number of merchants when pulling up the nearby stores list
-        ANCHOR_PARTYBOX: GM_getValue("ipANCHOR_PARTYBOX", true)+"" == "true",
     // ChangeSetting function. Sets the underlying property value and stores it in browser storage DB
     ChangeSetting: function(settingName, newValue)
     {
@@ -55,36 +58,98 @@ var IPOptions = ({
     }
 });
 
-var Counter = function(id){
-    var _counter = +GM_getValue("ipCnt" + id, 0);
-    console.log(id);
+var Counter = function(id, storeVals){
+    var _obj = {};
+    function init(){
+        _obj = JSON.parse(GM_getValue("ipCnt" + id) || 0);
+        if(typeof _obj === "number") _obj = ({counter:_obj, data:storeVals});
+        if(typeof _obj.data === "undefined") _obj.data = storeVals;
+    }
+    init();
+    
     this.increment = function(){
-        _counter++;
-        GM_setValue("ipCnt" + id, _counter);
-        return _counter;
+        _obj.counter++;
+        GM_setValue("ipCnt" + id, JSON.stringify(_obj));
+        return _obj.counter;
     };
     
     this.decrement = function()
     {
-        _counter--;
-        GM_setValue("ipCnt" + id, _counter);
+        _obj.counter--;
+        GM_setValue("ipCnt" + id, JSON.stringify(_obj));
         return _counter;
     };
     
     this.reset = function() {
-        GM_setValue("ipCnt" + id, 0);
-        _counter = 0;
-        return _counter;
+        _obj.counter = 0; _obj.data = storeVals;
+        GM_setValue("ipCnt" + id, JSON.stringify(_obj));
+        return _obj.counter;
     };
     
     this.current = function()
     {
-        _counter = +GM_getValue("ipCnt" + id, 0);
-        return _counter;
+        return _obj.counter;
+    };
+    
+    this.getData = function()
+    {
+        return _obj.data;
     };
     
     return this;
 };
+
+var StatCalc = ({
+    str:({mod:0.0009954,max:11,modmax:0.0012947,minmax:9,modin:0.0000014965}),
+    dex:({mod:0.00057334,max:10,modmax:0.00072171,minmax:8,modin:0.0000007418493}),
+    int:({mod:0.0001414791,max:10,modmax:0.000199425,minmax:8,modin:0.0000002897295}),
+    GetMax: function(stat, initial, current, count)
+    {
+        var evalMax = function(statVals){
+            var i, j, g, stats, thisInitial;
+            j=statVals.mod;
+			for (g=statVals.max; g>=statVals.minmax; g=g-0.01) {
+                thisInitial=initial;
+                for (i=1; i<=count; i++) {
+                    stats=thisInitial+(g-thisInitial)*j;
+                    thisInitial=stats;
+
+                    if (((Math.round(stats*100))/100)==current && i==count) {
+                        return g;
+                    }
+                }
+                j=j+statVals.modin;
+			}
+            return NaN;
+        };
+        var evalMin = function(statVals){
+            var i, j, g, stats, initStat;
+            j=statVals.modmax;
+			for (g=statVals.minmax; g<=statVals.max; g=g+0.01) {
+                initStat=initial;
+                for (i=1; i<=count; i++) {
+                    stats=initStat+(g-initStat)*j;
+                    initStat=stats;
+
+                    if (((Math.round(stats*100))/100)==current && i==count) {
+                        return g;
+                    }
+                }
+                j=j-statVals.modin;
+            }
+            return NaN;
+        };
+        
+        if(typeof stat === "string") stat = this[stat];
+        if(stat && stat.mod && stat.max && stat.modmax && stat.minmax && stat.modin)
+        {
+            var compmod = initial==5 ? compmod=0.005 : compmod=0;
+            var max = (evalMax(stat)+evalMin(stat))/2;
+            return Math.round(max * 100) / 100;
+        }
+        return NaN;
+    }
+});
 
 function resetDefaultSettings()
 {
@@ -128,7 +193,9 @@ document.addEventListener('keydown', function(e) {
     if(e.srcElement.nodeName!='INPUT') {
         if(e.key==="Escape") window.CANCEL_ACTION = true;
         if(e.key==="c") window.createCampsite();
-        if(e.key==="h")window.location.replace("/main.jsp?showHiddenPaths=true"); }}, false);
+        if(e.key==="h") window.location.replace("/main.jsp?showHiddenPaths=true"); 
+        if(e.code==="NumpadSubtract") window.deleteAndRecreateCharacter($("a[rel^=#profile]:eq(0)").text());
+    }}, false);
 
 //add shop item stats to shop view
 function loadShopItemDetails() {
@@ -511,12 +578,14 @@ function getLocation() {
 //get player stats and details
 function getPlayerStats() {
     var hp=$("#hitpointsBar").text().split("/");
+    var stats={}; $("#pro-stats span").each(function(i,e) { stats[$(e).parent().attr("rel")]=parseFloat($(e).text()); });
     return { characterId:window.characterId,
             verifyCode:window.verifyCode,
             name:$("a[rel^=#profile]:eq(0)").text(),
             maxhp:parseInt(hp[1]),
             hp:parseInt(hp[0]),
             health:+((hp[0]/hp[1])*100).toFixed(2),
+            stats:stats,
             gold:parseInt($("#mainGoldIndicator").text().replace(/,/g, ""))};
 }
 
@@ -568,13 +637,33 @@ function statDisplay() {
     $.ajaxQueue({
         url: $(".character-display-box:eq(0)").children().first().attr("rel"),
     }).done(function(data) {
+        //stat calculations
         var stats = $(data).find('.main-item-subnote');
+        player.maxStats = {};
+        player.stats = {str:parseFloat($( stats[0] ).text().split(" ")[0]),dex:parseFloat($( stats[1] ).text().split(" ")[0]),int:parseFloat($( stats[2] ).text().split(" ")[0])};
+        window.HITCOUNTER = new Counter(player.characterId, player.stats);
         $(".character-display-box:eq(0) > div:eq(1)").append("<div id='pro-stats' class='buff-pane'>"+
-                                                             "<img src='"+window.IMG_STAT_SWORD+"'><span>"+$( stats[0] ).text().split(" ")[0]+"</span>"+//str
-                                                             "<img src='"+window.IMG_STAT_SHIELD+"'><span>"+$( stats[1] ).text().split(" ")[0]+"</span>"+//def
-                                                             "<img src='"+window.IMG_STAT_POTION+"'><span>"+$( stats[2] ).text().split(" ")[0]+"</span>"+//int
+                                                             "<img src='"+window.IMG_STAT_SWORD+"'><div rel='str'><span class='stat'>"+player.stats.str+"</span></div>"+//str
+                                                             "<img src='"+window.IMG_STAT_SHIELD+"'><div rel='dex'><span class='stat'>"+player.stats.dex+"</span></div>"+//def
+                                                             "<img src='"+window.IMG_STAT_POTION+"'><div rel='int'><span class='stat'>"+player.stats.int+"</span></div>"+//int
                                                              "</a></div>");
         $('.header-stats a:nth-child(2)').children().html("Inv<span style=\"color:#AAA;margin-left:4px;margin-right:-5px;\">("+$( stats[3] ).text().split(" ")[0]+")</span> ");//carry
+        $("#pro-stats").on("click", ".stat", function(event){
+            var initStats = window.HITCOUNTER.getData();
+            var curCount = window.HITCOUNTER.current();
+            var statBlock = $(event.target); var stat = statBlock.parent().attr("rel");
+            player.maxStats[stat] = StatCalc.GetMax(stat, initStats[stat], player.stats[stat], curCount);
+            if(statBlock.parent().find(".max").length)
+                statBlock.parent().find(".max").text("["+(isNaN(player.maxStats[stat]) ? player.stats[stat] : player.maxStats[stat]) +"]");
+            else
+                statBlock.parent().append("<span class='max'>["+(isNaN(player.maxStats[stat]) ? player.stats[stat] : player.maxStats[stat]) +"]</span>");
+        });
+        
+        //hit counter
+        if(!IPOptions.HIDE_COUNTER){
+            $(".main-banner").append("<div id='hitCounter'><span id='hitAmount'>Attacks: " + window.HITCOUNTER.current() + "</span><br/><span><a title='Decrement counter' id='decrement'>⊖</a>/<a title='Reset counter' id='reset'>⊗</a>/<a title='Increment counter' id='increment'>⊕</a></span></div>");
+            $("#hitCounter").on("click", "a", function() { $("#hitAmount").html("Attacks: " + window.HITCOUNTER[this.id]()); });
+        }
     });
 }
 //utility stuff
@@ -615,9 +704,8 @@ function getThisPartyStarted() {
         });
         
         player=getPlayerStats();
-        window.HITCOUNTER = new Counter(player.characterId);
-        (function() { var oldVersion = window.combatAttackWithLeftHand; window.combatAttackWithLeftHand = function() { window.HITCOUNTER.increment(); result = oldVersion.apply(this, arguments); return result; };})();
-        (function() { var oldVersion = window.combatAttackWithRightHand; window.combatAttackWithRightHand = function() { window.HITCOUNTER.increment(); result = oldVersion.apply(this, arguments); return result; };})();
+        (function() { var oldVersion = window.combatAttackWithLeftHand; window.combatAttackWithLeftHand = function() { if(typeof window.HITCOUNTER === "undefined") window.HITCOUNTER = new Counter(player.characterId); window.HITCOUNTER.increment(); var result = oldVersion.apply(this, arguments); return result; };})();
+        (function() { var oldVersion = window.combatAttackWithRightHand; window.combatAttackWithRightHand = function() { if(typeof window.HITCOUNTER === "undefined") window.HITCOUNTER = new Counter(player.characterId); window.HITCOUNTER.increment(); var result = oldVersion.apply(this, arguments); return result; };})();
         loc=getLocation();
         updateLayouts();
         putHotkeysOnMap();
@@ -684,10 +772,6 @@ function updateLayouts() {
     if(!IPOptions.HIDE_VERSION)$(".header").append("<div id='initium-pro-version'><a href='https://github.com/hey-nails/InitiumPro' target='_blank'><img src='"+window.IMG_PRO+"'><span>v "+GM_info.script.version+"</span></a></div>");
     //the candle
     $(".header").append("<div id='light'><a onclick='$(\".banner-shadowbox\").toggleClass(\"torched\");'><img src='"+window.IMG_CANDLE+"'></a></div>");
-    //hit counter
-    console.log(window.HITCOUNTER.current());
-    $(".main-banner").append("<div id='hitCounter'><span id='hitAmount'>Attacks: " + window.HITCOUNTER.current() + "</span><br/><span><a title='Decrement counter' id='decrement'>⊖</a>/<a title='Reset counter' id='reset'>⊗</a>/<a title='Increment counter' id='increment'>⊕</a></span></div>");
-    $("#hitCounter").on("click", "a", function() { $("#hitAmount").html("Attacks: " + window.HITCOUNTER[this.id]()); });
 }
 function updateCSS() {
     $("head").append("<style>"+
@@ -761,7 +845,9 @@ function updateCSS() {
                      ".shop-buy-button { transition: .2s ease;width:85px;text-align:center;border:1px solid rgba(173,173,173,0.1);border-radius:10px;background:rgba(255,255,255,0.1);cursor:pointer;}"+
                      ".shop-buy-button:hover { background:rgba(173,173,173,0.2); }"+
                      //stat box icons
-                     "#pro-stats { width:160px; height:17px; font-size:10.5px; text-align:left; margin:-1px 0px 0px -5px; font-family:sans-serif; text-shadow:1px 1px 2px rgba(0, 0, 0, 1); } #pro-stats img { width:9px;height:9px;margin:3px 3px 0px 3px;vertical-align:sub; border:1px solid #AAAAAA;background:rgba(0,0,0,.5);border-radius:4px;padding:2px;/*-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.2));filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.2));*/} #pro-stats span { padding:0px 4px 0px 0px; }"+
+                     "#pro-stats { width:160px; height:17px; font-size:10.5px; text-align:left; margin:-1px 0px 0px -5px; font-family:sans-serif; text-shadow:1px 1px 2px rgba(0, 0, 0, 1); }"+ 
+                     "#pro-stats img { width:9px;height:9px;margin:3px 3px 0px 3px;vertical-align:top; border:1px solid #AAAAAA;background:rgba(0,0,0,.5);border-radius:4px;padding:2px;/*-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.2));filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.2));*/}"+
+                     "#pro-stats span { padding:0px 4px 0px 0px; display:block; } #pro-stats div { display:inline-block;width:30px;vertical-align:middle; }"+
                      "</style>");
     //base64 images
     window.IMG_PRO="data:image/gif;base64,R0lGODlhZABDALMAAP+VRaqqp8zMzK2baezGXoB/eIx0M9/PpMmnR/9mAGaZmaCGQIXa+P///wAAAAAAACH5BAEAAA0ALAAAAABkAEMAAAT/sMlJq7046ybM/mAojqMQFGSqriwXCGgrz7T5xnSuh/a9/0BLrwALGn89U/HIlCWVuKa0FKgqfdMsKGnFar+Xq6lA9ILPrmvBUF6iwUrBeDBoR9/TuLwwINSheFpPAX1+doF5VS8mhYaAiEyDjQh/ZpBIiowDBwQECJQvlpc5XHycnggGiqKjTpknm52fC69ErTqljZ6qXba3NbW6CLS9Ar/AasILcqG+xy1isJ2oy2rGz9CLc9OzcszO2Cp6MJPD3mPX4eLa5Nyp7ODqVOeE7sSL8fI87PWy71Yw0ukTYcMboVOzMgV8JmAAC0kI/zUTeOsApXUAD/q7hy6cRT8k/7holMVrorqPIPf1iiWL4wmKregMWIBgmsMPuU55WnCgWLgBs2pOW6Yh17SdzNAlWMq0aVMAFZxKbYphqtMJHYYJtQlTglFu1UxanRp17FULAMwupSBgAc2jsmB+bUnPl1MAePOmXUvhrl68TKFW2Ps371LBXg1sPTpA4Fyk55w9vbCXb4OzgydfpnpBcwOUcD1dm9stskDPFConmIA5tebWfQNPAB26MWlzpssepsx5M1Pesn1b1p0AMe3aBVbagwcT9QTVrHu7Dg47+m4JBwxo387drapt/nh5yycc8XTL1RuoFpy+fAXFw7hrJ0NoDdBPwxSSd4+2N+yp7EkX2/91EyxgkwELIJggHQvcN5NEe3QlgXMSQDehgABe+FtnwWFlIH4IhrgTfsO4tJ+GVlVG3FMdDjici+Z5ZeAuIRrQCU0g1iKhdWqt5mKKHG5oAYUc4KiddzfiOICOH/hVGF4rAkZke0RyoJh8blEik09NtrjBWaoJiaKPQ3pZwQDaHaVVTQuUcSJxMWoAJlk/VmVmBQcYqF1N8OWn3Y5lEtilmMK1GGZgdwphYAEM6MldAQ0CCqcI/0ll3qFSbTETAWw4eqRbfkj6nF4i/DVYYWg9SeoGB/RhIzcKKjgjAqIOZEEANSEQQILbueUdqJ00ZqsIAcQVnwDZ+RrijHEN+0GDsZ4Um8o1QJEELFfOCnFAqzU11g0F1c7CLDe1HkPIffHdZwBM4Q4TWqjZNsASrG5JWC0B46pZbkz4bkcjoPfly9i+l/DJAAMK8AkCg++SO6zBCCscApZY3jQQnwooUIDEJChrsbOF4BftCjQ1GK+8n4B1AAtufTwssmhqF8DKLZgcbwQAOw==";
