@@ -192,7 +192,7 @@ var krill=getThisPartyStarted();
 document.addEventListener('keydown', function(e) {
     if(e.srcElement.nodeName!='INPUT') {
         if(e.key==="Escape") window.CANCEL_ACTION = true;
-        if(e.key==="c") window.createCampsite();
+        if(e.key==="c" && !e.ctrlKey) window.createCampsite();
         if(e.key==="h") window.location.replace("/main.jsp?showHiddenPaths=true"); 
         if(e.code==="NumpadSubtract") window.deleteAndRecreateCharacter($("a[rel^=#profile]:eq(0)").text());
     }}, false);
