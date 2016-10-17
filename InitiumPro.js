@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7.7
+// @version      0.7.8
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
@@ -143,9 +143,8 @@ var StatCalc = ({
         if(typeof stat === "string") stat = this[stat];
         if(stat && stat.mod && stat.max && stat.modmax && stat.minmax && stat.modin)
         {
-            var compmod = initial==5 ? compmod=0.005 : compmod=0;
             var max = (evalMax(stat)+evalMin(stat))/2;
-            return Math.round(max * 100) / 100;
+            return max.toFixed(2);
         }
         return NaN;
     }
@@ -190,9 +189,9 @@ var krill=getThisPartyStarted();
 
 //EXTRA HOTKEYS: C for create campsite, H for show hidden paths, Escape to cancel auto-actions
 document.addEventListener('keydown', function(e) {
-    if(e.srcElement.nodeName!='INPUT') {
+    if(e.srcElement.nodeName!='INPUT' && !e.ctrlKey) {
         if(e.key==="Escape") window.CANCEL_ACTION = true;
-        if(e.key==="c" && !e.ctrlKey) window.createCampsite();
+        if(e.key==="c") window.createCampsite();
         if(e.key==="h") window.location.replace("/main.jsp?showHiddenPaths=true"); 
         if(e.code==="NumpadSubtract") window.deleteAndRecreateCharacter($("a[rel^=#profile]:eq(0)").text());
     }}, false);
@@ -306,6 +305,64 @@ function loadLocalMerchantDetails() {
             window.FLAG_LOADSHOPS=false;
             clearInterval(shopsLoaded);
         }
+    }, 500);
+}
+
+// Alter the nearby list to match the rest of inventory screens
+function loadNearby(selectPopupId)
+{
+    window.FLAG_LOADNEARBY=true;
+    console.log(selectPopupId);
+    var nearbyLoaded = setInterval(function(){
+        var popupRoot = $("#"+selectPopupId);
+        if(popupRoot.length === 0) return;
+        var left = popupRoot.find("#left");
+        var right = popupRoot.find("#right");
+        if(left.length === 0 || right.length === 0) return;
+        if(left.find(".main-item").length === 0 && right.find(".main-item") === 0) return;
+        
+        left.addClass("selection-root").children().wrapAll("<div class='selection-list'></div>");
+        right.addClass("selection-root").children().wrapAll("<div class='selection-list'></div>");
+        
+        popupRoot.find("h1").html("Transfer Items");
+        left.find("a.move-left").html("&rarr;").removeClass("move-left").addClass("large-arrows").each(function(i, e) { $(e).next("div.main-item").addClass("left-item").append($(e)).wrapInner("<div class='main-item-container'></div>").prepend("<input type='checkbox'>"); });
+        right.find("a.move-right").html("&larr;").removeClass("move-right").addClass("large-arrows").each(function(i, e) { $(e).next("div.main-item").addClass("right-item").append($(e)).wrapInner("<div class='main-item-container'></div>").prepend("<input type='checkbox'>"); });
+        
+        left.prepend("<div class='inventory-main-header'><h4>Your Inventory</h4>"+
+                     "<div class='main-item-filter'><input class='main-item-filter-input' id='filter_left-item' type='text' placeholder='Filter inventory...'></div>"+
+                     "<div class='inventory-main-commands'><div class='command-row'>"+
+                     "<label class='command-cell' title='Marks all inventory items for batch operations.'><input type='checkbox' class='check-all'>Select All</label>"+
+                     "<a class='command-cell right take-command' title='Moves all the items into the right location'>Move Selected</a>"+
+                     "</div></div></div>");
+        right.prepend("<div class='inventory-main-header'><h4>"+popupRoot.find(".header-bar .header-cell:last h5").text()+" Items</h4>"+
+                     "<div class='main-item-filter'><input class='main-item-filter-input' id='filter_right-item' type='text' placeholder='Filter inventory...'></div>"+
+                     "<div class='inventory-main-commands'><div class='command-row'>"+
+                     "<label class='command-cell' title='Marks all inventory items for batch operations.'><input type='checkbox' class='check-all'>Select All</label>"+
+                     "<a class='command-cell right take-command' title='Moves all the items into the right location'>Take Selected</a>"+
+                     "</div></div></div>");
+        
+        popupRoot.on("click", ".take-command", function(event) {
+            var selected = $(event.target).parents(".selection-root").find(".main-item").has("input:checkbox:visible:checked");
+            $(event.target).html("<img src='javascript/images/wait.gif'>");
+            var lastTake;
+            if(selected.length)
+            {
+                selected.each(function(i,e){
+                    var moveUrl = $(e).find("a.large-arrows").attr("onclick");
+                    var matches = moveUrl.match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/);
+                    var itemId = matches[1], entityType = matches[2], entityId = matches[3];
+                    var url = "/ServletCharacterControl?type=moveItem&itemId="+itemId+
+                        "&destinationKey="+entityType+"_"+entityId+
+                        "&v="+window.verifyCode+"&ajax=true&v="+window.verifyCode+"&_="+window.clientTime;
+                    lastTake = $.ajaxQueue({url: url});
+                });
+                if(lastTake)
+                    lastTake.done(function() { $(".page-popup-Reload").click(); });
+            }
+        });
+        
+        window.FLAG_LOADNEARBY=false;
+        clearInterval(nearbyLoaded);
     }, 500);
 }
 
@@ -671,6 +728,7 @@ function getThisPartyStarted() {
     //flags
     window.FLAG_LOADSHOPS=false;
     window.FLAG_LOADSHOPITEMS=false;
+    window.FLAG_LOADNEARBY=false;
     window.gotGold=false;
     window.localItems={};
     window.urlParams=getUrlParams();
@@ -687,7 +745,6 @@ function getThisPartyStarted() {
     $(document).ready(function () {
         $("#page-popup-root").on("click", ".page-popup-Reload", function(event){
             var reloadPopup = $(event.target).parent().find(".page-popup:last");
-            console.log(reloadPopup);
             if(reloadPopup.find("div[src^='/odp/ajax_viewstore.jsp']").length > 0)
             {
                 console.log("Reloading store items...");
@@ -730,12 +787,16 @@ function mutationHandler (mutationRecords) {
                 var header_location="<div class='header-location above-page-popup'><a onclick=''>"+loc.name+":</a> <span style='color:red;'>"+tm[2]+" "+tm[3]+"</span></div>";
                 $(".header-location").replaceWith(header_location);
             }
+            if($(mutation.target).is("[src^='ajax_moveitems.jsp']") && added.length && window.FLAG_LOADNEARBY===false)
+            {
+                loadNearby(mutation.target.id);
+            }
             //local merchants
-            if($('.main-merchant-container').length===0 && added.html() && window.FLAG_LOADSHOPS===false) {
+            if($('.main-merchant-container').length===0 && added.length && added.html() && window.FLAG_LOADSHOPS===false) {
                 loadLocalMerchantDetails();
             }
             //store item details
-            if($('.saleItem').length===0 && added.html() && window.FLAG_LOADSHOPITEMS===false) {
+            if($('.saleItem').length===0 && added.length && added.html() && window.FLAG_LOADSHOPITEMS===false) {
                 loadShopItemDetails();
             }
         }
@@ -819,6 +880,7 @@ function updateCSS() {
                      "#other-exits { position:absolute;top:185px;left:15px;text-shadow:1px 1px 3px rgba(0, 0, 0, 1); }"+
                      ".inline-stats {font-size:11px;padding:0px 0px 5px 2px;width:300px; }"+
                      ".coin-tiny { width:12px; }"+
+                     ".large-arrows { font-size: 32px; position: relative; right: 20px; float: right; }"+
                      ".table { display:table; } .row { display:table-row; } .cell { display:table-cell; }"+
                      "#local-item-summary { margin: 0px 0px 0px 10px;background:url(/images/ui/large-popup-middle.jpg);background-position-y:-50px;overflow:hidden; }"+
                      "#local-item-summary .cell { vertical-align:middle; }"+
