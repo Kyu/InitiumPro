@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7.8
+// @version      0.7.9
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
 // @match        https://www.playinitium.com/*
 // @match        http://www.playinitium.com/*
+// @exclude      https://www.playinitium.com/admin/*
+// @exclude      http://www.playinitium.com/admin/*
 // @grant        none
 // @require     https://gist.githubusercontent.com/arantius/3123124/raw/grant-none-shim.js
 // ==/UserScript==
@@ -55,6 +57,24 @@ var IPOptions = ({
         this.ChangeSetting("COMBAT_DELAY", 500);
         this.ChangeSetting("INSTANCE_DELAY", 1000);
         this.ChangeSetting("ANCHOR_PARTYBOX", true);
+    },
+    
+    GetCacheObject: function(keyName, defaultVal)
+    {
+        var cacheObject = GM_getValue("ip_Cache"+keyName);
+        if(typeof cacheObject === "undefined" || cacheObject === null || cacheObject === "") return defaultVal;
+        try{
+            return JSON.parse(cacheObject);
+        }
+        catch (ex){
+            return defaultVal;
+        }
+    },
+    
+    SaveCacheObject: function(keyName, saveObj)
+    {
+        if(typeof saveObj === "undefined" || saveObj === null) return;
+        GM_setValue("ip_Cache"+keyName, JSON.stringify(saveObj));
     }
 });
 
@@ -189,9 +209,9 @@ var krill=getThisPartyStarted();
 
 //EXTRA HOTKEYS: C for create campsite, H for show hidden paths, Escape to cancel auto-actions
 document.addEventListener('keydown', function(e) {
-    if(e.srcElement.nodeName!='INPUT' && !e.ctrlKey) {
+    if(e.srcElement.nodeName!='INPUT') {
         if(e.key==="Escape") window.CANCEL_ACTION = true;
-        if(e.key==="c") window.createCampsite();
+        if(e.key==="c" && !e.ctrlKey) window.createCampsite();
         if(e.key==="h") window.location.replace("/main.jsp?showHiddenPaths=true"); 
         if(e.code==="NumpadSubtract") window.deleteAndRecreateCharacter($("a[rel^=#profile]:eq(0)").text());
     }}, false);
@@ -312,30 +332,40 @@ function loadLocalMerchantDetails() {
 function loadNearby(selectPopupId)
 {
     window.FLAG_LOADNEARBY=true;
-    console.log(selectPopupId);
     var nearbyLoaded = setInterval(function(){
         var popupRoot = $("#"+selectPopupId);
         if(popupRoot.length === 0) return;
         var left = popupRoot.find("#left");
         var right = popupRoot.find("#right");
         if(left.length === 0 || right.length === 0) return;
-        if(left.find(".main-item").length === 0 && right.find(".main-item") === 0) return;
+        if(left.find(".main-item").length === 0 && right.find(".main-item") === 0)
+        {
+            window.FLAG_LOADNEARBY=false;
+            clearInterval(nearbyLoaded);
+            return;
+        }
         
+        if(typeof window.LocationID === "undefined" && left.find(".main-item").length && popupRoot.has("[src^=/ajax_moveitems.jsp?preset=location]").length)
+        {
+            window.LocationID = left.find("a.move-left:first").map(function(i,e) { return $(e).attr("onclick").match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/)[3]; }).get();
+        }
+        
+        displayBreadcrumb();
         left.addClass("selection-root").children().wrapAll("<div class='selection-list'></div>");
         right.addClass("selection-root").children().wrapAll("<div class='selection-list'></div>");
         
         popupRoot.find("h1").html("Transfer Items");
-        left.find("a.move-left").html("&rarr;").removeClass("move-left").addClass("large-arrows").each(function(i, e) { $(e).next("div.main-item").addClass("left-item").append($(e)).wrapInner("<div class='main-item-container'></div>").prepend("<input type='checkbox'>"); });
-        right.find("a.move-right").html("&larr;").removeClass("move-right").addClass("large-arrows").each(function(i, e) { $(e).next("div.main-item").addClass("right-item").append($(e)).wrapInner("<div class='main-item-container'></div>").prepend("<input type='checkbox'>"); });
+        left.find("a.move-left").html("&rarr;").removeClass("move-left").addClass("large-arrows").each(function(i, e) { $(e).next("div.main-item").addClass("left-items").append($(e)).wrapInner("<div class='main-item-container'></div>").prepend("<input type='checkbox'>"); });
+        right.find("a.move-right").html("&larr;").removeClass("move-right").addClass("large-arrows").each(function(i, e) { $(e).next("div.main-item").addClass("right-items").append($(e)).wrapInner("<div class='main-item-container'></div>").prepend("<input type='checkbox'>"); });
         
         left.prepend("<div class='inventory-main-header'><h4>Your Inventory</h4>"+
-                     "<div class='main-item-filter'><input class='main-item-filter-input' id='filter_left-item' type='text' placeholder='Filter inventory...'></div>"+
+                     "<div class='main-item-filter'><input class='main-item-filter-input' id='filter_left-items' type='text' placeholder='Filter inventory...'></div>"+
                      "<div class='inventory-main-commands'><div class='command-row'>"+
                      "<label class='command-cell' title='Marks all inventory items for batch operations.'><input type='checkbox' class='check-all'>Select All</label>"+
                      "<a class='command-cell right take-command' title='Moves all the items into the right location'>Move Selected</a>"+
                      "</div></div></div>");
         right.prepend("<div class='inventory-main-header'><h4>"+popupRoot.find(".header-bar .header-cell:last h5").text()+" Items</h4>"+
-                     "<div class='main-item-filter'><input class='main-item-filter-input' id='filter_right-item' type='text' placeholder='Filter inventory...'></div>"+
+                     "<div class='main-item-filter'><input class='main-item-filter-input' id='filter_right-items' type='text' placeholder='Filter location...'></div>"+
                      "<div class='inventory-main-commands'><div class='command-row'>"+
                      "<label class='command-cell' title='Marks all inventory items for batch operations.'><input type='checkbox' class='check-all'>Select All</label>"+
                      "<a class='command-cell right take-command' title='Moves all the items into the right location'>Take Selected</a>"+
@@ -344,9 +374,9 @@ function loadNearby(selectPopupId)
         popupRoot.on("click", ".take-command", function(event) {
             var selected = $(event.target).parents(".selection-root").find(".main-item").has("input:checkbox:visible:checked");
             $(event.target).html("<img src='javascript/images/wait.gif'>");
-            var lastTake;
             if(selected.length)
             {
+                var lastTake;
                 selected.each(function(i,e){
                     var moveUrl = $(e).find("a.large-arrows").attr("onclick");
                     var matches = moveUrl.match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/);
@@ -475,11 +505,14 @@ function getLocalStuff() {
         });
         $("#reload-inline-items").bind('click',function(){getLocalStuff();});
     }
-    if(IPOptions.HIDE_NEARBY) return;
-    $("#reload-inline-items").html("<img src='javascript/images/wait.gif'>");
+    // Always run the get so we can try to get the LocationID. If we can't then... tough?
+    if(!IPOptions.HIDE_NEARBY)
+        $("#reload-inline-items").html("<img src='javascript/images/wait.gif'>");
     window.localItems={};//clear the obj
     $.ajax({ url: localItemsURL, type: "GET",
             success: function(data) {
+                window.LocationID = $(data).find("#left a.move-left:first").map(function(i,e) { return $(e).attr("onclick").match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/)[3]; }).get();
+                if(IPOptions.HIDE_NEARBY) return;
                 var itemLines="",itemSubLines="",localItemSummary="",
                     locationName=$(data).find(".header-cell:nth-child(2) h5").text(),
                     localItemsList=$(data).find("#right a.clue"),
@@ -629,6 +662,7 @@ function getLocation() {
     else { loc.type=(window.biome)?window.biome.toLowerCase():"in a fight!"; } //if all else fails, i guess we're outside
     loc.campable=($("a[onclick^=createCampsite]").length>0)?true:false;
     loc.rest=($("a[onclick^=doRest]").length>0)?true:false;
+    loc.breadcrumbs = IPOptions.GetCacheObject("breadcrumbs", {});
     return loc;
 }
 
@@ -706,14 +740,17 @@ function statDisplay() {
                                                              "</a></div>");
         $('.header-stats a:nth-child(2)').children().html("Inv<span style=\"color:#AAA;margin-left:4px;margin-right:-5px;\">("+$( stats[3] ).text().split(" ")[0]+")</span> ");//carry
         $("#pro-stats").on("click", ".stat", function(event){
+            $("#pro-stats").off("click", ".stat");
             var initStats = window.HITCOUNTER.getData();
             var curCount = window.HITCOUNTER.current();
-            var statBlock = $(event.target); var stat = statBlock.parent().attr("rel");
-            player.maxStats[stat] = StatCalc.GetMax(stat, initStats[stat], player.stats[stat], curCount);
-            if(statBlock.parent().find(".max").length)
-                statBlock.parent().find(".max").text("["+(isNaN(player.maxStats[stat]) ? player.stats[stat] : player.maxStats[stat]) +"]");
-            else
-                statBlock.parent().append("<span class='max'>["+(isNaN(player.maxStats[stat]) ? player.stats[stat] : player.maxStats[stat]) +"]</span>");
+            $("#pro-stats div").each(function(i,e){
+                var statBlock = $(e); var stat = statBlock.attr("rel");
+                player.maxStats[stat] = StatCalc.GetMax(stat, initStats[stat], player.stats[stat], curCount);
+                if(statBlock.find(".max").length)
+                    statBlock.find(".max").text("["+(isNaN(player.maxStats[stat]) ? player.stats[stat] : player.maxStats[stat]) +"]");
+                else
+                    statBlock.append("<span class='max'>["+(isNaN(player.maxStats[stat]) ? player.stats[stat] : player.maxStats[stat]) +"]</span>");
+            });
         });
         
         //hit counter
@@ -833,7 +870,29 @@ function updateLayouts() {
     if(!IPOptions.HIDE_VERSION)$(".header").append("<div id='initium-pro-version'><a href='https://github.com/hey-nails/InitiumPro' target='_blank'><img src='"+window.IMG_PRO+"'><span>v "+GM_info.script.version+"</span></a></div>");
     //the candle
     $(".header").append("<div id='light'><a onclick='$(\".banner-shadowbox\").toggleClass(\"torched\");'><img src='"+window.IMG_CANDLE+"'></a></div>");
+    setTimeout(displayBreadcrumb, 1500);
+    $("body").on("click", "a#ipBreadcrumb", function(event) {
+        var bcLink = $(event.target);
+        window.promptPopup("Set Breadcrumb", "Set breadcrumb text for next load", bcLink.text(), function(newBC) { 
+            newBC = newBC || "[None]";
+            bcLink.html(newBC);
+            loc.breadcrumbs[bcLink.attr("rel")]=newBC; 
+            IPOptions.SaveCacheObject("breadcrumbs", loc.breadcrumbs);
+        });
+    });
 }
+
+function displayBreadcrumb()
+{
+    if(window.LocationID){
+        var bc = loc.breadcrumbs[window.LocationID];
+        showMessage("Breadcrumb: <a id='ipBreadcrumb' rel="+window.LocationID+">" + (bc || "[None]") + "</a>", "yellow", "crumb");
+    }
+    else{
+        showMessage("Unable to determine LocationID. Make sure an item is on the ground and view nearby items again.", "yellow", "crumb");
+    }
+}
+
 function updateCSS() {
     $("head").append("<style>"+
                      //style overrides
@@ -925,7 +984,7 @@ function updateCSS() {
 String.prototype.decode=function() { return decodeURIComponent(this).replace("%27","'"); };
 String.prototype.encode=function() { return encodeURIComponent(this).replace(/'/g, "%27"); };
 function removeElement(el) {$(el).fadeOut(300, function() { $(this).remove(); });}
-function showMessage(msg,color) { $(".show-message").remove();$(".main-dynamic-content-box").first().append("<div class='show-message' style=\"color:"+(color||"white")+";padding-top:15px;\">"+msg+"</div>");}
+function showMessage(msg,color,addClass) { addClass = addClass || ""; $(".show-message"+addClass).remove();$(".main-dynamic-content-box").first().append("<div class='show-message"+addClass+"' style=\"color:"+(color||"white")+";padding-top:15px;\">"+msg+"</div>");}
 function combatMessage(msg,type) { return $(".main-page:eq(1) > p:eq(0)").append("<div style='margin:10px 0px;'><span style='color:orange;'>["+(type||"INFO")+"]</span>&nbsp;"+msg+"</div>"); }
 function pulse(elName,color) { $(elName).css({"background-color":color}).fadeTo(400, 0.5, function() { $(elName).fadeTo(300, 1).css({"background-color":""}); }); }
 function getUrlParams(urlString) { var params={};urlString=urlString||window.location.search;urlString.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str,key,value) { params[key] = value; });return params;}
