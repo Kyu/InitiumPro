@@ -10,7 +10,7 @@
 // @exclude      https://www.playinitium.com/admin/*
 // @exclude      http://www.playinitium.com/admin/*
 // @grant        none
-// @require     https://gist.githubusercontent.com/arantius/3123124/raw/grant-none-shim.js
+// @require     https://raw.githubusercontent.com/SPFiredrake/InitiumPro/master/grant-none-shim.js
 // ==/UserScript==
 /* jshint -W097 */
 
