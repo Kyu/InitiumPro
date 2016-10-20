@@ -4,8 +4,7 @@
 			.option-group { display: table; width: 100%; text-align: center; border-spacing: 5px; }
 			.option-group > * { display: table-cell; }
 			.option-group .option-list { width: 25%; }
-			.option-list select { width: 100%; color: white; }
-			.option-list select option { font-size: 18px; }
+			.option-list select { width: 100%; color: white; font-size: 18px; }
 			.option-list select:focus { outline: none; }
 			.option-list .controls { margin: 5px auto; }
 			.option-data { vertical-align: top; }
@@ -16,7 +15,7 @@
 			#loot-list option:checked { background-color: inherit; color: inherit; }
 			/* Problem is that all of the item qualities use odd styling. We want to make them consistent, so get rid of background, background clip, and set a standard font size. */
 			.chest-page .item-junk, .chest-page .item-rare, .chest-page .item-unique, .chest-page .item-epic, .chest-page .item-magic 
-				{ font-size: 18px; background-color: inherit; }
+				{ font-size: 18px; background: none; }
 			/* And manually set all the font colors. */
 			.chest-page .item-rare { color: #DD7700; } .chest-page .item-unique { color: #F9CC00; }
 			.chest-page .item-epic { color: #AC54FF; } .chest-page .item-magic { color: #2597FF; }
@@ -36,7 +35,7 @@
 			</center>
 			<div id="mob-settings" class="option-group">
 				<div class="option-list">
-					<select class="boldbox" size="5"></select>
+					<select class="boldbox" size="4"></select>
 					<div class="controls">
 						<a id="mobs-add">Add</a> 
 						<a id="mobs-delete">Delete</a> 
