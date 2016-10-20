@@ -1,89 +1,81 @@
 <html>
-  <head>
-    <style type="text/css">
-		.chest-page { }
-        .option-group { display:table; width:100%; text-align:center; }
-        .option-group > * { display: table-cell; }
-        .option-group .option-list { width:25%; }
-        .option-list.boldbox { }
-        .option-list select { width: 100%; color:white; }
-		.option-list select option { font: 18px; }
-        .option-list select:focus { outline:none; }
-		.option-list .controls { margin: 5px auto; }
-        .option-data { vertical-align: top; }
-		.option-data input { margin: auto 5px; vertical-align: middle; }
-		.option-data input[type=text] { width: 50%; }
-		.option-data input[type=range] { display: inherit; }
-		#selected-quality { font-size: 20px; width:75px; display:inline-block; }
-		/* Problem is that all of the item qualities use odd styling. We want to make them 
-		consistent, so get rid of background, background clip, and set a standard font size. */
-		#loot-settings .item-junk, #loot-settings .item-rare, #loot-settings .item-unique, #loot-settings .item-epic, #loot-settings .item-magic 
-			{ font-size: 18px; -webkit-background-clip: none; background-color:none; }
-		/* And manually set all the colors. */
-		#loot-settings .item-rare { color: #DD7700; } #loot-settings .item-unique { color: #F9CC00; }
-		#loot-settings .item-epic { color: #AC54FF; } #loot-settings .item-magic { color: #2597FF; }
-		#loot-settings option:checked { background-color: -internal-inactive-list-box-selection; color: -internal-inactive-list-box-selection-text; }
-    </style>
-    <title>Farming Settings</title>
-	<script type="text/javascript">
-		var qualityDisplay = ["Junk", "Normal", "Rare", "Unique", "Epic", "Magic"];
-		var qualityClass = ["item-junk", "", "item-rare", "item-unique", "item-epic", "item-magic"];
-	</script>
-  </head>
-  <body>
-    <center>
-      <h1>
-        Mob Settings
-      </h1>
-    </center>
-    <div class="chest-page">
-      <div id="mob-settings" class="option-group">
-        <div class="option-list">
-          <select class="boldbox" size="5">
-          </select>
-		  <div class="controls">
-			<a id="mobs-add">Add</a>
-			<a id="mobs-delete">Delete</a>
-			<a id="mobs-reset">Clear</a>
-		  </div>
-        </div>
-        <div class="option-data boldbox">
-		  <center>Mob Settings</center>
-		  <label title="Can be partial names">Mob Name <input type="text" id="mob-name" rel="name"></label>
-		  <br>
-		  <label>Auto Run<input type="checkbox" id="mob-flee" rel="flee"></label>
-		  <label>Stop Farming<input type="checkbox" id="mob-stop" rel="stop"></label>
-		  <br>
-		  <input type="button" id="save" value="Apply">
-	    </div>
-      </div>
-    </div>
-	<center>
-      <h1>
-        Loot Settings
-      </h1>
-    </center>
-	<div class="chest-page">
-      <div id="loot-settings" class="option-group">
-        <div class="option-list">
-          <select class="boldbox" size="5">
-          </select>
-		  <div class="controls">
-			<a id="loot-add">Add</a>
-			<a id="loot-delete">Delete</a>
-			<a id="loot-reset">Clear</a>
-		  </div>
-        </div>
-        <div class="option-data boldbox">
-          <center>Auto Loot</center>
-		  <label title="Can be partial names">Item Name <input type="text" id="loot-name" rel="name"></label>
-		  <br>
-		  <center><span id="selected-quality"></span></center>
-		  <label for="loot-quality">Minimum Quality: 
-			<input type="range" id="loot-quality" rel="minquality" min="0" value="1" max="5" step="1" oninput="document.getElementById('selected-quality').innerHTML = quality[this.value];">
-		  </label>
-        </div>
-      </div>
-    </div>
-  </body>
+	<head>
+		<style type="text/css">
+			.option-group { display:table; width:100%; text-align:center; }
+			.option-group > * { display: table-cell; }
+			.option-group .option-list { width:25%; }
+			.option-list.boldbox { }
+			.option-list select { width: 100%; color:white; }
+			.option-list select option { font: 18px; }
+			.option-list select:focus { outline:none; }
+			.option-list .controls { margin: 5px auto; }
+			.option-data { vertical-align: top; }
+			.option-data input { margin: auto 5px; vertical-align: middle; }
+			.option-data input[type=text] { width: 50%; }
+			.option-data input[type=range] { display: inherit; }
+			#selected-quality { font-size: 20px; width:75px; display:inline-block; }
+			/* Problem is that all of the item qualities use odd styling. We want to make them consistent, so get rid of background, background clip, and set a standard font size. */
+			#loot-settings .item-junk, #loot-settings .item-rare, #loot-settings .item-unique, #loot-settings .item-epic, #loot-settings .item-magic 
+				{ font-size: 18px; -webkit-background-clip: none; background-color:none; }
+			/* And manually set all the font colors. */
+			#loot-settings .item-rare { color: #DD7700; } #loot-settings .item-unique { color: #F9CC00; }
+			#loot-settings .item-epic { color: #AC54FF; } #loot-settings .item-magic { color: #2597FF; }
+			#loot-settings option:checked { background-color: -internal-inactive-list-box-selection; color: -internal-inactive-list-box-selection-text; }
+		</style>
+		<title>
+			Farming Settings
+		</title>
+		<script type="text/javascript">
+			var qualityDisplay = ["Junk", "Normal", "Rare", "Unique", "Epic", "Magic"];
+			var qualityClass = ["item-junk", "", "item-rare", "item-unique", "item-epic", "item-magic"];
+		</script>
+	</head>
+	<body>
+		<div class="chest-page">
+			<center>
+				<h1>Mob Settings</h1>
+			</center>
+			<div id="mob-settings" class="option-group">
+				<div class="option-list">
+					<div class="controls">
+						<a id="mobs-add">Add</a> 
+						<a id="mobs-delete">Delete</a> 
+						<a id="mobs-reset">Clear</a>
+					</div>
+				</div>
+				<div class="option-data boldbox">
+					<center>Mob Settings</center>
+					<label title="Can be partial names">Mob Name <input type="text" id="mob-name" rel="name"></label>
+					<br>
+					<label>Auto Run<input type="checkbox" id="mob-flee" rel="flee"></label> 
+					<label>Stop Farming<input type="checkbox" id="mob-stop" rel="stop"></label>
+					<br>
+					<input type="button" id="save" value="Apply">
+				</div>
+			</div>
+			<center>
+				<h1>Loot Settings</h1>
+			</center>
+			<div id="loot-settings" class="option-group">
+				<div class="option-list">
+					<div class="controls">
+						<a id="loot-add">Add</a> 
+						<a id="loot-delete">Delete</a> 
+						<a id="loot-reset">Clear</a>
+					</div>
+				</div>
+				<div class="option-data boldbox">
+					<center>Loot Settings</center>
+					<label title="Can be partial names">Item Name <input type="text" id="loot-name" rel="name"></label>
+					<br>
+					<label for="loot-quality">Minimum Quality: 
+						<input type="range" id="loot-quality" rel="minquality" min="0" value="1" max="5" step="1">
+					</label>
+					<div id="selected-quality">Normal</div>
+					<br>
+					<input type="button" id="save" value="Apply">
+				</div>
+			</div>
+		</div>
+	</body>
 </html>
