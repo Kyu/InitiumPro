@@ -1,22 +1,22 @@
 <html>
 	<head>
 		<style type="text/css">
-			.option-group { display:table; width:100%; text-align:center; }
+			.option-group { display: table; width: 100%; text-align: center; border-spacing: 5px; }
 			.option-group > * { display: table-cell; }
-			.option-group .option-list { width:25%; }
+			.option-group .option-list { width: 25%; }
 			.option-list.boldbox { }
-			.option-list select { width: 100%; color:white; }
+			.option-list select { width: 100%; color: white; }
 			.option-list select option { font: 18px; }
-			.option-list select:focus { outline:none; }
+			.option-list select:focus { outline: none; }
 			.option-list .controls { margin: 5px auto; }
 			.option-data { vertical-align: top; }
 			.option-data input { margin: 5px 2px; vertical-align: middle; }
 			.option-data input[type=text] { width: 50%; }
 			.option-data input[type=range] { display: inherit; }
-			#selected-quality { font-size: 20px; width:75px; display:inline-block; }
+			#selected-quality { font-size: 20px; width: 75px; display: inline-block; }
 			/* Problem is that all of the item qualities use odd styling. We want to make them consistent, so get rid of background, background clip, and set a standard font size. */
 			.chest-page .item-junk, .chest-page .item-rare, .chest-page .item-unique, .chest-page .item-epic, .chest-page .item-magic 
-				{ font-size: 18px; -webkit-background-clip: none; background-color:none; }
+				{ font-size: 18px; -webkit-background-clip: none; background-color: none; }
 			/* And manually set all the font colors. */
 			.chest-page .item-rare { color: #DD7700; } .chest-page .item-unique { color: #F9CC00; }
 			.chest-page .item-epic { color: #AC54FF; } .chest-page .item-magic { color: #2597FF; }
