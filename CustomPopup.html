@@ -15,12 +15,11 @@
 			.option-data input[type=range] { display: inherit; }
 			#selected-quality { font-size: 20px; width:75px; display:inline-block; }
 			/* Problem is that all of the item qualities use odd styling. We want to make them consistent, so get rid of background, background clip, and set a standard font size. */
-			#loot-settings .item-junk, #loot-settings .item-rare, #loot-settings .item-unique, #loot-settings .item-epic, #loot-settings .item-magic 
+			.chest-page .item-junk, .chest-page .item-rare, .chest-page .item-unique, .chest-page .item-epic, .chest-page .item-magic 
 				{ font-size: 18px; -webkit-background-clip: none; background-color:none; }
 			/* And manually set all the font colors. */
-			#loot-settings .item-rare { color: #DD7700; } #loot-settings .item-unique { color: #F9CC00; }
-			#loot-settings .item-epic { color: #AC54FF; } #loot-settings .item-magic { color: #2597FF; }
-			#loot-settings option:checked { background-color: -internal-inactive-list-box-selection; color: -internal-inactive-list-box-selection-text; }
+			.chest-page .item-rare { color: #DD7700; } .chest-page .item-unique { color: #F9CC00; }
+			.chest-page .item-epic { color: #AC54FF; } .chest-page .item-magic { color: #2597FF; }
 		</style>
 		<title>
 			Farming Settings
@@ -37,6 +36,7 @@
 			</center>
 			<div id="mob-settings" class="option-group">
 				<div class="option-list">
+					<select class="boldbox" size="5"></select>
 					<div class="controls">
 						<a id="mobs-add">Add</a> 
 						<a id="mobs-delete">Delete</a> 
@@ -58,6 +58,7 @@
 			</center>
 			<div id="loot-settings" class="option-group">
 				<div class="option-list">
+					<select id="loot-list" class="boldbox" size="4">
 					<div class="controls">
 						<a id="loot-add">Add</a> 
 						<a id="loot-delete">Delete</a> 
