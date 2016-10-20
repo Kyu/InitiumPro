@@ -8,6 +8,7 @@
 			.option-list select:focus { outline: none; }
 			.option-list .controls { margin: 5px auto; }
 			.option-data { vertical-align: top; }
+			.option-data select { margin: 5px 2px; }
 			.option-data input { margin: 5px 2px; vertical-align: middle; }
 			.option-data input[type=text] { width: 50%; }
 			.option-data input[type=range] { display: inherit; }
@@ -30,6 +31,23 @@
 	</head>
 	<body>
 		<div class="chest-page">
+			<center>
+				<h1>Farm Settings</h1>
+			</center>
+			<div id="farm-settings" class="option-group option-data boldbox">
+				<div>
+					<label title="When a weapon breaks, what action do you want to use. If you continue, you will continue to attack with other hand.">Broken Weapon Action 
+						<select rel="breakage"><option value=0>Flee</option><option value=1>Continue</option><option value=2>Stop Farming</option></select>
+					</label>
+					<br/>
+					<label>Attack Hand <select rel="weapon"><option value=0>Left</option><option value=1>Right</option></select></label>
+				</div>
+				<div>
+					<label>Attack Threshold <input type="number" min="0" max="100" title="Health percentage at which you will no longer attack."></label>
+					<br/>
+					<label>Auto Equip Weapon <input type="text" rel="auto-equip" title="Name of the weapon you wish to equip. Will get the first matching weapon, and will stop farming if not found."></label>
+				</div>
+			</div>
 			<center>
 				<h1>Mob Settings</h1>
 			</center>
@@ -69,7 +87,8 @@
 					<label title="Can be partial names">Item Name <input type="text" id="loot-name" rel="name"></label>
 					<br>
 					<label for="loot-quality">Minimum Quality: 
-						<input type="range" id="loot-quality" rel="minquality" min="0" value="1" max="5" step="1">
+						<input type="range" id="loot-quality" rel="minquality" min="0" value="1" max="5" step="1" 
+							oninput="$('#selected-quality').removeClass().addClass(qualityClass[this.value]).html(qualityDisplay[this.value]);">
 					</label>
 					<div id="selected-quality">Normal</div>
 					<br>
