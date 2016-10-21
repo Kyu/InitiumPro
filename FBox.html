@@ -87,7 +87,7 @@
 					<label title="Can be partial names">Item Name <input type="text" id="loot-name" rel="name"></label>
 					<br>
 					<label for="loot-quality">Minimum Quality: 
-						<input type="range" id="loot-quality" rel="minquality" min="0" value="1" max="5" step="1" 
+						<input type="range" id="loot-quality" rel="minquality" min="0" default="1" value="1" max="5" step="1" 
 							oninput="$('#selected-quality').removeClass().addClass(qualityClass[this.value]).html(qualityDisplay[this.value]);">
 					</label>
 					<div id="selected-quality">Normal</div>
