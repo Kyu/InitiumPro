@@ -62,10 +62,10 @@
 				</div>
 				<div class="option-data boldbox">
 					<center>Mob Settings</center>
-					<label title="Can be partial names">Mob Name <input type="text" id="mob-name" rel="name"></label>
+					<label title="Can be partial names">Mob Name <input type="text" id="mob-name" disabled rel="name"></label>
 					<br>
-					<label>Auto Run<input type="checkbox" id="mob-flee" rel="flee"></label> 
-					<label>Stop Farming<input type="checkbox" id="mob-stop" rel="stop"></label>
+					<label>Auto Run<input type="checkbox" id="mob-flee" disabled rel="flee"></label> 
+					<label>Stop Farming<input type="checkbox" id="mob-stop" disabled rel="stop"></label>
 					<br>
 					<input type="button" id="save" value="Apply">
 				</div>
@@ -84,10 +84,10 @@
 				</div>
 				<div class="option-data boldbox">
 					<center>Loot Settings</center>
-					<label title="Can be partial names">Item Name <input type="text" id="loot-name" rel="name"></label>
+					<label title="Can be partial names">Item Name <input type="text" id="loot-name" disabled rel="name"></label>
 					<br>
 					<label for="loot-quality">Minimum Quality: 
-						<input type="range" id="loot-quality" rel="minquality" min="0" default="1" value="1" max="5" step="1" 
+						<input type="range" id="loot-quality" rel="minquality" default="1" min="0" value="1" max="5" step="1" disabled
 							oninput="$('#selected-quality').removeClass().addClass(qualityClass[this.value]).html(qualityDisplay[this.value]);">
 					</label>
 					<div id="selected-quality">Normal</div>
