@@ -15,8 +15,9 @@
 /* jshint -W097 */
 
 'use strict';
-var $=window.jQuery,loc={},player={};
-
+var $=window.jQuery;
+window.loc={};
+window.player={};
 /*** INITIUM PRO OPTIONS ***/
 var IPOptions = ({
     /*** AUTO ACTION SETTINGS ***/
@@ -29,12 +30,14 @@ var IPOptions = ({
               AUTO_REST: GM_getValue("ipAUTO_REST", true)+"" == "true",  //auto rest if injured and in restable area
       AUTO_LEAVE_FORGET: GM_getValue("ipAUTO_LEAVE_FORGET", false)+"" == "true", //automatically clicks 'Leave and Forget' after a battle
     AUTO_CONFIRM_POPUPS: GM_getValue("ipAUTO_CONFIRM_POPUPS", false)+"" == "true", //confirms popups like camp name so you can keep your fingers to the metal!
+    AUTO_CONFIRM_PROMPT: GM_getValue("ipAUTO_CONFIRM_PROMPT", false)+"" == "true", //confirms popups like camp name so you can keep your fingers to the metal!
     /*** CUSTOM UI SETTINGS ***/
         ANCHOR_PARTYBOX: GM_getValue("ipANCHOR_PARTYBOX", true)+"" == "true", //indicates whether to reposition the party box to top-left corner
            HIDE_COUNTER: GM_getValue("ipHIDE_COUNTER", false)+"" == "true", //this will hide the attack counter
            HIDE_VERSION: GM_getValue("ipHIDE_VERSION", true)+"" == "true", //this will hide pro icon with the version number (you jerk)
             HIDE_NEARBY: GM_getValue("ipHIDE_NEARBY", true)+"" == "true", //this hides and prevents nearby items list from pulling every request
       PRELOAD_MERCHANTS: +GM_getValue("ipPRELOAD_MERCHANTS", 5), //this auto-loads the first specified number of merchants when pulling up the nearby stores list
+    
     // ChangeSetting function. Sets the underlying property value and stores it in browser storage DB
     ChangeSetting: function(settingName, newValue)
     {
@@ -43,6 +46,7 @@ var IPOptions = ({
         return newValue;
     },
     
+    // DefaultSettings function. Resets all the options to default values.
     DefaultSettings: function()
     {
         this.ChangeSetting("AUTO_GOLD", true);
@@ -52,6 +56,7 @@ var IPOptions = ({
         this.ChangeSetting("AUTO_LEAVE_FORGET", false);
         this.ChangeSetting("AUTO_FLEE", 0);
         this.ChangeSetting("AUTO_CONFIRM_POPUPS", false);
+        this.ChangeSetting("AUTO_CONFIRM_PROMPT", false);
         this.ChangeSetting("HIDE_VERSION", true);
         this.ChangeSetting("HIDE_NEARBY", true);
         this.ChangeSetting("COMBAT_DELAY", 500);
@@ -59,6 +64,7 @@ var IPOptions = ({
         this.ChangeSetting("ANCHOR_PARTYBOX", true);
     },
     
+    // GetCacheObject function. Gets values from cache. Values are stored as JSON strings, and parsed when pulled. Try/catch to ignore errors and return default vals.
     GetCacheObject: function(keyName, defaultVal)
     {
         var cacheObject = GM_getValue("ip_Cache"+keyName);
@@ -67,10 +73,12 @@ var IPOptions = ({
             return JSON.parse(cacheObject);
         }
         catch (ex){
+            console.log("Error encountered parsing object from cache! " + ex);
             return defaultVal;
         }
     },
     
+    // SaveCacheObject function. Saves the object to cache as a JSON string, given the specified key
     SaveCacheObject: function(keyName, saveObj)
     {
         if(typeof saveObj === "undefined" || saveObj === null) return;
@@ -97,7 +105,7 @@ var Counter = function(id, storeVals){
     {
         _obj.counter--;
         GM_setValue("ipCnt" + id, JSON.stringify(_obj));
-        return _counter;
+        return _obj._counter;
     };
     
     this.reset = function() {
@@ -200,6 +208,12 @@ function resetDefaultSettings()
         function doRequest( next ) { jqXHR = $.ajax( ajaxOpts ).done( dfd.resolve ).fail( dfd.reject ).then( next, next );} // run the actual query
         return promise;
     };
+    
+    $.doDelay = function(time) {
+        var defer = $.Deferred();
+        setTimeout(function () { defer.resolve(); }, time || 0);
+        return defer.promise();
+    };
 })($);
 
 window.CANCEL_ACTION = false;
@@ -208,12 +222,31 @@ window.ITEM_CACHE = {};
 var krill=getThisPartyStarted();
 
 //EXTRA HOTKEYS: C for create campsite, H for show hidden paths, Escape to cancel auto-actions
-document.addEventListener('keydown', function(e) {
-    if(e.srcElement.nodeName!='INPUT') {
+document.addEventListener('keyup', function(e) {
+    if(e.srcElement.nodeName!='INPUT' && !e.ctrlKey) {
         if(e.key==="Escape") window.CANCEL_ACTION = true;
-        if(e.key==="c" && !e.ctrlKey) window.createCampsite();
+        if(e.key==="c" && loc.campable) window.createCampsite();
         if(e.key==="h") window.location.replace("/main.jsp?showHiddenPaths=true"); 
         if(e.code==="NumpadSubtract") window.deleteAndRecreateCharacter($("a[rel^=#profile]:eq(0)").text());
+        if(e.code==="Slash" && e.shiftKey && $("#page-popup-root .main-item").length){
+            window.promptPopup("Search Inventory", "Please input the inventory item", "", function(input){
+                if(!input) return;
+                var groups = {}; 
+                // ContainsI is a custom selector specified in Initium's script.js.
+                // Does a case insensitive "contains" search.
+                $("#page-popup-root .page-popup:last .main-item")
+                    .has(".main-item-name:ContainsI('"+input+"')")
+                    .each(function(i,e) { 
+                        var key = $(e).find(".main-item-name").text(); 
+                        if(!groups[key]) groups[key] = 0; 
+                        groups[key]++; 
+                    }); 
+                var cnt = 0; 
+                $("#chat_input")
+                    .val($(Object.getOwnPropertyNames(groups))
+                         .map(function(i, key) { cnt+= groups[key]; return key + ": " + groups[key]; }).get().join("; ") + "; TOTAL: " + cnt);
+            });
+        }
     }}, false);
 
 //add shop item stats to shop view
@@ -249,7 +282,7 @@ function loadShopItemDetails() {
             }
             else
             {
-                $.ajax({
+                $.ajaxQueue({
                     url: "viewitemmini.jsp?itemId="+itemId, type: "GET",
                     itemId: itemId,
                     itemImg: itemImg,
@@ -345,9 +378,9 @@ function loadNearby(selectPopupId)
             return;
         }
         
-        if(typeof window.LocationID === "undefined" && left.find(".main-item").length && popupRoot.has("[src^=/ajax_moveitems.jsp?preset=location]").length)
+        if(left.find(".main-item").length && popupRoot.is("[src*='ajax_moveitems.jsp?preset=location']"))
         {
-            window.LocationID = left.find("a.move-left:first").map(function(i,e) { return $(e).attr("onclick").match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/)[3]; }).get();
+            window.LocationID = left.find("a.move-left:first").map(function(i,e) { return $(e).attr("onclick").match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/)[3]; }).get(0);
         }
         
         displayBreadcrumb();
@@ -372,8 +405,8 @@ function loadNearby(selectPopupId)
                      "</div></div></div>");
         
         popupRoot.on("click", ".take-command", function(event) {
-            var selected = $(event.target).parents(".selection-root").find(".main-item").has("input:checkbox:visible:checked");
-            $(event.target).html("<img src='javascript/images/wait.gif'>");
+            var selected = $(this).parents(".selection-root").find(".main-item").has("input:checkbox:visible:checked");
+            $(this).html("<img src='javascript/images/wait.gif'>");
             if(selected.length)
             {
                 var lastTake;
@@ -384,7 +417,7 @@ function loadNearby(selectPopupId)
                     var url = "/ServletCharacterControl?type=moveItem&itemId="+itemId+
                         "&destinationKey="+entityType+"_"+entityId+
                         "&v="+window.verifyCode+"&ajax=true&v="+window.verifyCode+"&_="+window.clientTime;
-                    lastTake = $.ajaxQueue({url: url});
+                    lastTake = $.ajaxQueue({url: url}).done($.doDelay(150));
                 });
                 if(lastTake)
                     lastTake.done(function() { $(".page-popup-Reload").click(); });
@@ -398,10 +431,12 @@ function loadNearby(selectPopupId)
 
 function keepPunching() {
     //for a more CircleMUD feel
+    if(IPOptions.AUTO_CONFIRM_POPUPS) $(".popup_message_okay").click();
+    
     if(IPOptions.AUTO_SWING) {
-        if((loc.type==="in combat!" || loc.type==="in a fight!") && window.urlParams.type==="attack" && player.health>IPOptions.AUTO_FLEE)
+        if(loc.inCombat && window.urlParams.type==="attack" && window.player.health>IPOptions.AUTO_FLEE)
         {
-            if(player.health<IPOptions.AUTO_SWING_THRESHOLD)
+            if(window.player.health<IPOptions.AUTO_SWING_THRESHOLD)
             {
                 combatMessage("Your health is below the auto-swing threshold", "AUTO-SWING");
                 return;
@@ -415,12 +450,12 @@ function keepPunching() {
         }
     }
     if(IPOptions.AUTO_FLEE>0) {
-        if((loc.type==="in combat!" || loc.type==="in a fight!") && player.health<=IPOptions.AUTO_FLEE) {
+        if(loc.inCombat && window.player.health<=IPOptions.AUTO_FLEE) {
             combatMessage("Your health is below "+IPOptions.AUTO_FLEE+"%, trying to gtfo!","AUTO-FLEE");
             window.combatEscape();
         }
     }
-    if(IPOptions.AUTO_REST && loc.rest===true && player.health<100) window.doRest();
+    if(IPOptions.AUTO_REST && loc.rest===true && window.player.health<100) window.doRest();
     if(IPOptions.AUTO_LEAVE_FORGET && loc.type==="combat site") {
         if(IPOptions.AUTO_GOLD) {
             setTimeout(function() {
@@ -463,7 +498,8 @@ function putHotkeysOnMap() {
 function getLocalGold() {
     var localCharsURL="/locationcharacterlist.jsp";
 
-    $.ajaxQueue({
+    window.player.gold = +$("#mainGoldIndicator").text().replace(/,/g, "");
+    return $.ajaxQueue({
         url: localCharsURL,
     }).done(function(data) {
         var goldLinks = $(data).find("[onclick*='Doge']:not(:contains(' 0 gold'))");
@@ -485,7 +521,7 @@ function getLocalGold() {
             });
         });
         //inform the user of our sweet gains!
-        $("#mainGoldIndicator").text(Number(player.gold+dogeCollected).toLocaleString('en'));
+        $("#mainGoldIndicator").text(Number(window.player.gold+dogeCollected).toLocaleString('en'));
         pulse("#mainGoldIndicator","yellow");
     });
 }
@@ -505,14 +541,14 @@ function getLocalStuff() {
         });
         $("#reload-inline-items").bind('click',function(){getLocalStuff();});
     }
-    // Always run the get so we can try to get the LocationID. If we can't then... tough?
-    if(!IPOptions.HIDE_NEARBY)
+    
+    if(IPOptions.HIDE_NEARBY) return $.when("Done");
         $("#reload-inline-items").html("<img src='javascript/images/wait.gif'>");
     window.localItems={};//clear the obj
-    $.ajax({ url: localItemsURL, type: "GET",
-            success: function(data) {
-                window.LocationID = $(data).find("#left a.move-left:first").map(function(i,e) { return $(e).attr("onclick").match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/)[3]; }).get();
-                if(IPOptions.HIDE_NEARBY) return;
+    return $.ajaxQueue({ url: localItemsURL })
+        .done(function(data) {
+        window.LocationID = $(data).find("#left a.move-left:first").map(function(i,e) { return $(e).attr("onclick").match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/)[3]; }).get(0);
+        displayBreadcrump();
                 var itemLines="",itemSubLines="",localItemSummary="",
                     locationName=$(data).find(".header-cell:nth-child(2) h5").text(),
                     localItemsList=$(data).find("#right a.clue"),
@@ -608,7 +644,6 @@ function getLocalStuff() {
                     }
                 });
                 $("#reload-inline-items").html("↻");
-            }
            });
 }
 
@@ -656,28 +691,33 @@ function formatItemStats(thang) {
 }
 //get location data
 function getLocation() {
-    var loc={name:$(".header-location").text()};
-    if(loc.name.indexOf("Combat site:")!==-1) { loc.type=($(".character-display-box").length>1)?"in combat!":"combat site"; } //if we're in a combat site, are we in combat or not? 
-    else if(loc.name.indexOf("Camp:")!==-1) { loc.type="camp"; } //if we ain't fighting, are are we in a camp?
-    else { loc.type=(window.biome)?window.biome.toLowerCase():"in a fight!"; } //if all else fails, i guess we're outside
-    loc.campable=($("a[onclick^=createCampsite]").length>0)?true:false;
-    loc.rest=($("a[onclick^=doRest]").length>0)?true:false;
-    loc.breadcrumbs = IPOptions.GetCacheObject("breadcrumbs", {});
-    return loc;
+    if(typeof window.loc === "undefined") window.loc = {};
+    window.loc.name=$(".header-location").text();
+    window.loc.inCombat = $("title:contains('Combat')").length > 0;
+    if(window.loc.inCombat) window.loc.mob = $(".header .header-location a").text().substring("Combat site: ".length);
+    if(window.loc.name.indexOf("Combat site:")!==-1) { loc.type=loc.inCombat?"in combat!":"combat site"; } //if we're in a combat site, are we in combat or not? 
+    else if(window.loc.name.indexOf("Camp:")!==-1) { loc.type="camp"; } //if we ain't fighting, are are we in a camp?
+    else { window.loc.type=(window.biome)?window.biome.toLowerCase():"in a fight!"; } //if all else fails, i guess we're outside
+    window.loc.campable=($("a[onclick^=createCampsite]").length>0)?true:false;
+    window.loc.rest=($("a[onclick^=doRest]").length>0)?true:false;
+    window.loc.breadcrumbs = IPOptions.GetCacheObject("breadcrumbs", {});
+    return window.loc;
 }
 
 //get player stats and details
 function getPlayerStats() {
     var hp=$("#hitpointsBar").text().split("/");
     var stats={}; $("#pro-stats span").each(function(i,e) { stats[$(e).parent().attr("rel")]=parseFloat($(e).text()); });
-    return { characterId:window.characterId,
-            verifyCode:window.verifyCode,
-            name:$("a[rel^=#profile]:eq(0)").text(),
-            maxhp:parseInt(hp[1]),
-            hp:parseInt(hp[0]),
-            health:+((hp[0]/hp[1])*100).toFixed(2),
-            stats:stats,
-            gold:parseInt($("#mainGoldIndicator").text().replace(/,/g, ""))};
+    if(typeof window.player === "undefined") window.player = {};
+    window.window.player.characterId = window.characterId;
+    window.player.verifyCode=window.verifyCode;
+    window.player.name=$("a[rel^=#profile]:eq(0)").text();
+    window.player.maxhp=parseInt(hp[1]);
+    window.player.hp=parseInt(hp[0]);
+    window.player.health=+((hp[0]/hp[1])*100).toFixed(2);
+    window.player.stats=stats;
+    window.player.gold=parseInt($("#mainGoldIndicator").text().replace(/,/g, ""));
+    return window.player;
 }
 
 //display stats
@@ -692,7 +732,7 @@ function statDisplay() {
         return "<div class='row'>" + 
             "<div class='cell'>" + name + "</div>" +
             "<div class='cell value'><input id='" + name + "' type='" + 
-            (typeof sVal === "boolean" ? ("checkbox" + (sVal ? "' checked='checked" : "")) : "text' value='" + sVal) + "'></div>" +
+            (typeof sVal === "boolean" ? ("checkbox" + (sVal ? "' checked='checked" : "")) : "number' value='" + sVal) + "'></div>" +
             "</div>";
     }).get().join("");
     $(".header-stats a:last").before("<span class='hint' rel='#InitiumProSettings'><img id='gear_icon' src='"+window.IMG_GEAR+"' border='0'></span>");
@@ -725,18 +765,24 @@ function statDisplay() {
             }
         }
     });
-    $.ajaxQueue({
-        url: $(".character-display-box:eq(0)").children().first().attr("rel"),
-    }).done(function(data) {
+    var url = $(".main-banner .character-display-box:eq(0)").children().first().attr("rel");
+    return $.ajaxQueue({url:url})
+        .done(function(data) {
         //stat calculations
         var stats = $(data).find('.main-item-subnote');
-        player.maxStats = {};
-        player.stats = {str:parseFloat($( stats[0] ).text().split(" ")[0]),dex:parseFloat($( stats[1] ).text().split(" ")[0]),int:parseFloat($( stats[2] ).text().split(" ")[0])};
-        window.HITCOUNTER = new Counter(player.characterId, player.stats);
+        window.player.characterId = getUrlParams(url).characterId;
+        window.player.equip = {};
+        $(data).find(".main-item").each(function(i,e) {
+            var slot = e.innerText.substring(0, e.innerText.indexOf(":")).toLowerCase();
+            window.player.equip[slot] = $(e).find(".main-item-name").text();
+        });
+        window.player.maxStats = {};
+        window.player.stats = {str:parseFloat($( stats[0] ).text().split(" ")[0]),dex:parseFloat($( stats[1] ).text().split(" ")[0]),int:parseFloat($( stats[2] ).text().split(" ")[0])};
+        window.HITCOUNTER = new Counter(window.player.characterId, window.player.stats);
         $(".character-display-box:eq(0) > div:eq(1)").append("<div id='pro-stats' class='buff-pane'>"+
-                                                             "<img src='"+window.IMG_STAT_SWORD+"'><div rel='str'><span class='stat'>"+player.stats.str+"</span></div>"+//str
-                                                             "<img src='"+window.IMG_STAT_SHIELD+"'><div rel='dex'><span class='stat'>"+player.stats.dex+"</span></div>"+//def
-                                                             "<img src='"+window.IMG_STAT_POTION+"'><div rel='int'><span class='stat'>"+player.stats.int+"</span></div>"+//int
+                                                             "<img src='"+window.IMG_STAT_SWORD+"'><div rel='str'><span class='stat'>"+window.player.stats.str+"</span></div>"+//str
+                                                             "<img src='"+window.IMG_STAT_SHIELD+"'><div rel='dex'><span class='stat'>"+window.player.stats.dex+"</span></div>"+//def
+                                                             "<img src='"+window.IMG_STAT_POTION+"'><div rel='int'><span class='stat'>"+window.player.stats.int+"</span></div>"+//int
                                                              "</a></div>");
         $('.header-stats a:nth-child(2)').children().html("Inv<span style=\"color:#AAA;margin-left:4px;margin-right:-5px;\">("+$( stats[3] ).text().split(" ")[0]+")</span> ");//carry
         $("#pro-stats").on("click", ".stat", function(event){
@@ -745,11 +791,11 @@ function statDisplay() {
             var curCount = window.HITCOUNTER.current();
             $("#pro-stats div").each(function(i,e){
                 var statBlock = $(e); var stat = statBlock.attr("rel");
-                player.maxStats[stat] = StatCalc.GetMax(stat, initStats[stat], player.stats[stat], curCount);
+                window.player.maxStats[stat] = StatCalc.GetMax(stat, initStats[stat], window.player.stats[stat], curCount);
                 if(statBlock.find(".max").length)
-                    statBlock.find(".max").text("["+(isNaN(player.maxStats[stat]) ? player.stats[stat] : player.maxStats[stat]) +"]");
+                    statBlock.find(".max").text("["+(isNaN(window.player.maxStats[stat]) ? window.player.stats[stat] : window.player.maxStats[stat]) +"]");
                 else
-                    statBlock.append("<span class='max'>["+(isNaN(player.maxStats[stat]) ? player.stats[stat] : player.maxStats[stat]) +"]</span>");
+                    statBlock.append("<span class='max'>["+(isNaN(window.player.maxStats[stat]) ? window.player.stats[stat] : window.player.maxStats[stat]) +"]</span>");
             });
         });
         
@@ -771,15 +817,28 @@ function getThisPartyStarted() {
     window.urlParams=getUrlParams();
     //init stuff
     updateCSS();
-    statDisplay();
-    getLocalGold();
-    getLocalStuff();
+    var aj1 = statDisplay();
+    var aj2 = getLocalGold();
+    var aj3 = getLocalStuff();
     //mutation observer watches the dom
     MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
     //setting up observers
     observe(["#instanceRespawnWarning",".popup_confirm_yes","#popups","#page-popup-root"],{childList:true,characterData:true,attributes:true,subtree:true});
     //finish up when page ready
     $(document).ready(function () {
+        $("body").on("click", "#cluetip #copyItemId", function(event) { 
+            if($("#popupItemId").length)
+            {
+                var itemId = $("#popupItemId").val();
+                var input = $("<input id='spCopy' style='left:50%;margin-left:-100px;position:fixed;top:48%;width:200px;z-index:-10000000;' value='"+itemId+"'>");
+                $("body").append(input);
+                var hiddenInput = $("#spCopy").get(0);
+                hiddenInput.focus();
+                hiddenInput.setSelectionRange(0, hiddenInput.value.length);
+                document.execCommand("copy");
+                input.remove();
+            }
+        });
         $("#page-popup-root").on("click", ".page-popup-Reload", function(event){
             var reloadPopup = $(event.target).parent().find(".page-popup:last");
             if(reloadPopup.find("div[src^='/odp/ajax_viewstore.jsp']").length > 0)
@@ -796,14 +855,16 @@ function getThisPartyStarted() {
                 setTimeout(loadLocalMerchantDetails, 500);
             }
         });
-        
-        player=getPlayerStats();
-        (function() { var oldVersion = window.combatAttackWithLeftHand; window.combatAttackWithLeftHand = function() { if(typeof window.HITCOUNTER === "undefined") window.HITCOUNTER = new Counter(player.characterId); window.HITCOUNTER.increment(); var result = oldVersion.apply(this, arguments); return result; };})();
-        (function() { var oldVersion = window.combatAttackWithRightHand; window.combatAttackWithRightHand = function() { if(typeof window.HITCOUNTER === "undefined") window.HITCOUNTER = new Counter(player.characterId); window.HITCOUNTER.increment(); var result = oldVersion.apply(this, arguments); return result; };})();
+        $.when(aj1, aj2, aj3).done(function(){
+            window.player=getPlayerStats();
+            (function() { var oldVersion = window.combatAttackWithLeftHand; window.combatAttackWithLeftHand = function() { if(typeof window.HITCOUNTER === "undefined") window.HITCOUNTER = new Counter(window.player.characterId, window.player.stats); window.HITCOUNTER.increment(); var result = oldVersion.apply(this, arguments); return result; };})();
+            (function() { var oldVersion = window.combatAttackWithRightHand; window.combatAttackWithRightHand = function() { if(typeof window.HITCOUNTER === "undefined") window.HITCOUNTER = new Counter(window.player.characterId, window.player.stats); window.HITCOUNTER.increment(); var result = oldVersion.apply(this, arguments); return result; };})();
+            (function() { var oldVersion = window.doExplore; window.doExplore = function() { IPOptions.SaveCacheObject("ExploreType", arguments[0] || true); var result = oldVersion.apply(this, arguments); return result; };})();
         loc=getLocation();
         updateLayouts();
         putHotkeysOnMap();
-        keepPunching();
+            setTimeout(keepPunching, 500);
+        });
     });
     return true;
 }
@@ -814,7 +875,7 @@ function mutationHandler (mutationRecords) {
         if (typeof mutation.removedNodes == "object") {
             var removed = $(mutation.removedNodes);
             var added = $(mutation.addedNodes);
-            if(IPOptions.AUTO_CONFIRM_POPUPS) $(added).find(".popup_confirm_yes").click();//auto-click confirm yes button
+            if(IPOptions.AUTO_CONFIRM_PROMPT) $(added).find(".popup_confirm_yes").click();//auto-click confirm yes button
             //instance countdown
             var countDown=removed.text().split("arrive")[1];
             if(countDown) {
@@ -824,16 +885,28 @@ function mutationHandler (mutationRecords) {
                 var header_location="<div class='header-location above-page-popup'><a onclick=''>"+loc.name+":</a> <span style='color:red;'>"+tm[2]+" "+tm[3]+"</span></div>";
                 $(".header-location").replaceWith(header_location);
             }
+            // Item popups
+            if($(mutation.target).is(".main-item a.cluetip-clicked") && $("#cluetip #copyItemId").length === 0)
+            {
+                // Give the popup time to load, since it doesn't seem to fire any other mutations other than the attribute on the clicked element
+                setTimeout(function() {
+                    // Make sure we haven't added it already, since we delay a bit first.
+                    if($("#cluetip #copyItemId").length) return;
+                    var item = $("#cluetip #popupItemId");
+                    var newElement = $("<a id='copyItemId' style='float:right;'>Copy ID</a>");
+                    item.parent().find("a:contains('Share')").next("br").after(newElement);
+                }, 250);
+            }
             if($(mutation.target).is("[src^='ajax_moveitems.jsp']") && added.length && window.FLAG_LOADNEARBY===false)
             {
                 loadNearby(mutation.target.id);
             }
             //local merchants
-            if($('.main-merchant-container').length===0 && added.length && added.html() && window.FLAG_LOADSHOPS===false) {
+            if($(mutation.target).is("[src^='locationmerchantlist.jsp']") && added.length && window.FLAG_LOADSHOPS===false) {
                 loadLocalMerchantDetails();
             }
             //store item details
-            if($('.saleItem').length===0 && added.length && added.html() && window.FLAG_LOADSHOPITEMS===false) {
+            if($(mutation.target).is("[src^='odp/ajax_managestore.jsp'],[src^='odp/ajax_viewstore.jsp']") && added.length && window.FLAG_LOADSHOPITEMS===false) {
                 loadShopItemDetails();
             }
         }
@@ -845,6 +918,7 @@ function observe(els,config) {
 }
 function updateLayouts() {
     //Class updates
+    $("title").text($("title").text().replace("Initium", window.player.hp+"/"+window.player.maxhp));
     $(".main-buttonbox").find("br").remove().appendTo(".main-page-banner-image");
     $(".main-button").removeClass("main-button").each(function(i,e){
         var curButton = $(e);
@@ -858,22 +932,22 @@ function updateLayouts() {
     }
     $(".main-buttonbox > center").wrap("<div class='main-button-half action-button'></div>");
     $(".main-button-icon").each(function (i, e) { $(e).next(".action-button").append($(e)); });
-    //$("a[shortcut='69']").parent().append($([shortcut=87]"));
+    // Add the W shortcut icon to the banner, above other exits.
     $(".main-button-icon[shortcut=87]").clone().addClass("search-nearby").removeClass("main-button-icon").appendTo(".main-banner");
     // Combat text comes after the main buttonbox. Problem is that there were floated elements before, so the text
     // can possibly occupy the space after the buttonbox. Do not allow that. Throw an empty div that clears floats after it.
     if(/combat.jsp/g.test(window.location.href))
         $(".main-buttonbox").append("<div style='clear:both;'></div>");
-    //Add loc type to header
-    if(loc.type)$(".header-location").append("<span style='margin-left:12px;color:red;'>("+loc.type+")</span>");
+    //Add loc type to header. Set position absolute to let the rest of the header content overlap
+    if(loc.type)$(".header-location").css("position","absolute").append("<span style='margin-left:12px;color:red;'>("+loc.type+")</span>");
     //show 'em that pro is active!
-    if(!IPOptions.HIDE_VERSION)$(".header").append("<div id='initium-pro-version'><a href='https://github.com/hey-nails/InitiumPro' target='_blank'><img src='"+window.IMG_PRO+"'><span>v "+GM_info.script.version+"</span></a></div>");
+    if(!IPOptions.HIDE_VERSION)$(".header").append("<div id='initium-pro-version'><a href='https://github.com/SPFiredrake/InitiumPro' target='_blank'><img src='"+window.IMG_PRO+"'><span>v "+GM_info.script.version+"</span></a></div>");
     //the candle
     $(".header").append("<div id='light'><a onclick='$(\".banner-shadowbox\").toggleClass(\"torched\");'><img src='"+window.IMG_CANDLE+"'></a></div>");
     setTimeout(displayBreadcrumb, 1500);
     $("body").on("click", "a#ipBreadcrumb", function(event) {
         var bcLink = $(event.target);
-        window.promptPopup("Set Breadcrumb", "Set breadcrumb text for next load", bcLink.text(), function(newBC) { 
+        window.promptPopup("Set Breadcrumb", "Set breadcrumb text for location", bcLink.text(), function(newBC) { 
             newBC = newBC || "[None]";
             bcLink.html(newBC);
             loc.breadcrumbs[bcLink.attr("rel")]=newBC; 
@@ -916,6 +990,8 @@ function updateCSS() {
                      ".banner-shadowbox { transition:1s ease; }"+
                      "div[src]>div>br { display:none!important; }"+
                      ".search-nearby { position: absolute;top: 145px;left: 15px;text-shadow: 1px 1px 3px rgba(0, 0, 0, 1); }"+
+                     ".chest-nearby { position: absolute;top: 100px;left: -5px;text-shadow: 1px 1px 3px rgba(0, 0, 0, .75); }"+
+                     ".chest-nearby input[type=checkbox] { width:20px;height:20px; }"+
                      //InitiumPro custom elements
                      "div.main-splitScreen.party-box { position: absolute;top: 0px;left: 0px;width: 190px; }"+
                      "div.main-splitScreen.party-box .party-row { margin: 5px auto; }"+
@@ -980,6 +1056,7 @@ function updateCSS() {
     window.IMG_CANDLE="data:image/gif;base64,R0lGODlhHgA8AKIHAEEyMdmgZu7Fl99xJopvMP///6wyMv///yH5BAEAAAcALAAAAAAeADwAAAP/eLq8Zi3KqR69OOvNu3cfBoXSM5KNiUbq6gzD6RqwvNK1HRqCEOsfns8y6/1cCtgAuVAyGYBVbxoI4EjTXhUAw/oGhV6h6uwYwWJy91MdBwQFdyBUFdTjePr7ji/o7W9xU398g2x7gWE9hImGHnWFi4eAcIoCjFmSj4iZlx9Ub5mYdZodkJylHKeUqRugrJ4er6SxZlqotRyzobmumachncCfv4jBxYB/oFVzk8tVyresm6HMzK0Y14DW2A1kCtrW1hnfB+Hi0BEE6wQAdettcehkW+wK7OtcA+1TAP7t+gDgI7BgIAEYAqe0W6jPYIR/+Pzp2zfQHwaJGDNm1KCxCCPGDh4lUkgAADs=";
     window.IMG_BOXBUTTON="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAB1CAYAAACGYelhAAAB20lEQVR4nO3UsW3CUBRG4Vu4dIUsKGKLBZAyQArGyAreALmlZgFKqtRMQJFBUqTIGE6RiALsSOg5MuacX/pKF0/3yBHOOeecc879sUVEnDQJzz03TNoyIlpNwrrnhkkzgOkwADgDgEsOYBE/Bz/LsuylKIpW92U+n1/J8/z18n4R8XRLAKfLqoqiaA+Hg+7M8Xi8slqtuv4KHwbwgAwAzgDgDABu9AC2261GtNlsrlRVZQAUBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAZwBwBgBnAHAGAGcAcAYAN3oA+/0+SdM0SjB6AKm6HqA0BgBnAHAGADdEAG+/H5zNZrPP3W7XDq2uaw2sLMuvy/tFxPstAXRt2VGV7tO654ZJM4DpMAA4A4AzALh/CcA555xzzj3IvgGv+knN2J8eTwAAAABJRU5ErkJggg==";
     window.IMG_GEAR="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAS9QTFRFAAAA////AAAAenx+AAAAAAAAAAAAAAAARkdIODk6dnh6b3Fydnh6iYuNiYuNh4mLiYuNfoCCbW9xaWpsa21vaWpsaWttgYOFdnh6iIqMbG5wcXN1fX+BfX+CcHJ0bnBycnV2gYOFbW9xb3FzcXN1dHZ4eHp8fH6AfX+BgIKEgoSGhYeJh4mLiYuNi42PjI6QjY+SjpCSjpGUj5GTj5GUkJKTkpSUl5iamZudmpyem52fnZ+hoKKkqKqsrK6vr7GysLKzs7O3tLa4tre6t7i7t7m8t7q8ubu+ury+vr/Cv8DDwsTFwsTGwsXGw8XHxMbIyMnMyszOzM7QztDSz8/Rz9DS0NHT0tTW1NXX1NbY19ja19nb2Nna2Nnb2Nrc293f3t/h3+Hj4ePk5+fp6+zuz42tNgAAACJ0Uk5TAAAHIiMkLzM9Tpytr6+wsrK6vb+/wMHr7e3v7+/v8f7+/jvKobsAAADfSURBVBgZBcE/T8JAHIDh93d3paHWlqgQkAQkcdBJFxa/v3FwchRNRBIHkrZgMMDR++PzCAA8RHkDQBT0zsHPPYwKQFM+Do/T3IYyn422VgzKT4qBbWbZulwp0Divsuov7H/T9bIJonDZ1Mqm2jp7c+ZA31+W3VC9V3Uvj6d8UJn45DdJ608dm7R3+gXD88WQRIlKRC8ahfkijkM/ONMXVa/AWNrmKi8gSLW3iGJ4PalTLTqtJ9McDE4W38vu/PXgj9IBw/bD72RsDj/Eww4Ekui4jfJJJzhEACAFC4D8A1YAXZU/EmOtAAAAAElFTkSuQmCC";
+    window.IMG_CHEST="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAADAFBMVEUBAAD//sv//pn//mX//jP9/QD/y/7/y8v/y5n/y2X/zDP9ywD/mf7/mcv/mZn/mGX/mDP9mAD/Zf7/Zcv/ZZj/ZWX/ZTP9ZQD/M/7/M8v/M5j/M2X/MzP9MgD9AP39AMv9AJj9AGX9ADL9AADL///L/8vM/5nL/2XM/zPL/QDLy//MzMzLy5jMy2bLyzLMywDLmf/LmMvLmJjMmGbLmDLMmQDLZf/MZsvMZpjMZmbLZTLMZQDLM//LMsvLMpjLMmXLMjLMMgDLAP3MAMvMAJjMAGXMADLMAACZ//+Z/8uZ/5mY/2WZ/zOY/QCZzP+Yy8uYy5iZzGaYyzKZzACZmf+YmMuZmZmYmGWZmDOYlwCYZf+YZsyYZZiYZWWZZTOYZQCYM/+YMsuZM5iZM2WZMzOYMgCYAP2YAMyYAJeYAGWYADKYAABl//9l/8tl/5hl/2Vm/zNl/QBly/9mzMxmzJhmzGZlyzJmzABlmP9mmcxlmJhlmGVmmTNlmABlZf9mZsxlZZhmZmZlZTJmZQBlM/9lMstlM5llMmVlMjJmMgBlAP1lAMxlAJhmAGVmADJmAAAz//8z/8wz/5gz/2Yz/zMy/QAzzP8yy8syy5gyy2UyyzIzzAAzmf8ymMszmZkzmWUzmTMymAAzZv8yZcszZpkyZWUyZTIzZgAzM/8yMsszM5kyMmUzMzMyMQAyAP0yAMwyAJgyAGYyADEyAAAA/f0A/csA/ZgA/WUA/TIA/QAAy/0AzMwAzJkAzGUAzDMAzAAAmP0AmcwAmJgAmGUAmDIAmAAAZf0AZswAZZgAZmYAZjIAZgAAMv0AM8wAMpgAM2YAMjIAMgAAAP0AAMwAAJgAAGYAADLuAADcAAC6AACqAACIAAB2AABUAABEAAAiAAAQAAAA7gAA3AAAugAAqgAAiAAAdgAAVAAARAAAIgAAEAAAAO4AANwAALoAAKoAAIgAAHYAAFQAAEQAACIAABDu7u7d3d27u7uqqqqIiIh3d3dVVVVEREQiIiIREREAAAARpvBFAAAAAXRSTlMAQObYZgAAAPJJREFUOMuN0tEVwyAIBdD+OBLzMA/zZJ4eJ8mh+EDQpOkpv+9KEPN6/VeK+hETd6sno83itxXM9/ztxSxyI5UT8RBXoi3yZnH32sgEjWOS6yzaGpH155wkyHJJZqK25DQmWQRINUA8Zt1XNbp4Pq6hXTehKpPYecVOewFVHHJCI0dNkLETFo4KYLfEREkkawJutJGquUi+ERE8mwOyecZ0RTxewNhskYxXgKcIEnHuIUF0QYxliZ4OOAA+5D/MBKcRfNMBZhnNe4HTN2kXjcdEBCATTLIDkePQyJMUQKwZr8Sb3+Ii0fweJ3mOg/yKnVziD5Zc6DHlokWIAAAAAElFTkSuQmCC";
 }
 String.prototype.decode=function() { return decodeURIComponent(this).replace("%27","'"); };
 String.prototype.encode=function() { return encodeURIComponent(this).replace(/'/g, "%27"); };
