@@ -105,7 +105,7 @@ var Counter = function(id, storeVals){
     {
         _obj.counter--;
         GM_setValue("ipCnt" + id, JSON.stringify(_obj));
-        return _obj._counter;
+        return _obj.counter;
     };
     
     this.reset = function() {
@@ -886,15 +886,23 @@ function mutationHandler (mutationRecords) {
                 $(".header-location").replaceWith(header_location);
             }
             // Item popups
-            if($(mutation.target).is(".main-item a.cluetip-clicked") && $("#cluetip #copyItemId").length === 0)
+            if($(mutation.target).is("a.cluetip-clicked[rel^='viewitemmini.jsp']") && $("#cluetip #copyItemId").length === 0)
             {
                 // Give the popup time to load, since it doesn't seem to fire any other mutations other than the attribute on the clicked element
-                setTimeout(function() {
-                    // Make sure we haven't added it already, since we delay a bit first.
-                    if($("#cluetip #copyItemId").length) return;
+                var copyId = setInterval(function() {
+                    if($("a.cluetip-clicked").length === 0  // They either closed the tooltip by clicking elsewhere
+                       || $("#cluetip #copyItemId").length === 1) // Or we've already added it.
+                    {
+                        // Clear the interval and break out.
+                        clearInterval(copyId);
+                        return;
+                    }
+                    // If the popup hasn't finished loading, let it spin.
+                    if($("#cluetip #popupItemId").length === 0) return;
                     var item = $("#cluetip #popupItemId");
                     var newElement = $("<a id='copyItemId' style='float:right;'>Copy ID</a>");
                     item.parent().find("a:contains('Share')").next("br").after(newElement);
+                    clearInterval(copyId);
                 }, 250);
             }
             if($(mutation.target).is("[src^='ajax_moveitems.jsp']") && added.length && window.FLAG_LOADNEARBY===false)
