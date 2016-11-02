@@ -1,122 +1,488 @@
-<html>
-	<head>
-		<style type="text/css">
-			.option-group { display: table; width: 100%; text-align: center; border-spacing: 5px; }
-			.option-group > * { display: table-cell; }
-			.option-group .option-list { width: 25%; }
-			.option-list select { width: 100%; color: white; font-size: 18px; }
-			.option-list select:focus { outline: none; }
-			.option-list .controls { margin: 5px auto; }
-			.option-data { vertical-align: top; }
-			.option-data select { margin: 5px 2px; }
-			.option-data input { margin: 5px 2px; vertical-align: middle; }
-			.option-data input[type=text] { width: 50%; }
-			.option-data input[type=range] { display: inherit; }
-			#selected-quality { font-size: 20px; width: 75px; display: inline-block; }
-			#loot-list option:checked { background-color: inherit; color: inherit; }
-			/* Problem is that all of the item qualities use odd styling. We want to make them consistent, so get rid of background, background clip, and set a standard font size. */
-			.chest-page .item-junk, .chest-page .item-rare, .chest-page .item-unique, .chest-page .item-epic, .chest-page .item-magic 
-				{ font-size: 18px; background: none; }
-			/* And manually set all the font colors. */
-			.chest-page .item-rare { color: #DD7700; } .chest-page .item-unique { color: #F9CC00; }
-			.chest-page .item-epic { color: #AC54FF; } .chest-page .item-magic { color: #2597FF; }
-		</style>
-		<title>
-			Farming Settings
-		</title>
-	</head>
-	<body>
-		<div class="chest-page">
-			<center><a id="cancel-save" class="big-link">Cancel</a></center>
-			<center>
-				<h1>Farm Settings</h1>
-			</center>
-			<div id="farm-settings" class="option-group option-data boldbox">
-				<div>
-					<label title="When a weapon breaks, what action do you want to use. If you continue, you will continue to attack with other hand.">Broken Weapon Action 
-						<select rel="breakage"><option value=0>Continue</option><option value=1>Flee</option><option value=2>Stop Farming</option></select>
-					</label>
-					<br/>
-					<label>Attack Hand <select rel="weapon"><option value=0>Left</option><option value=1>Right</option></select></label>
-					<br/>
-					<label>Reverse Collection <input type="checkbox" rel="reverseloot"></label>
-				</div>
-				<div>
-					<label>Attack Threshold <input type="number" rel="attackThreshold" min="0" max="100" title="Health percentage at which you will no longer attack."></label>
-					<br/>
-					<label>Idle Notification <input type="checkbox" rel="idlenotify" title="Sends a private message to current character when a no-action refresh happens."></label>
-				</div>
-			</div>
-			<center>
-				<h1>Auto Equip Settings</h1>
-			</center>
-			<div id="equip-settings" class="option-group option-data boldbox" rel="equip">
-				<div style="width:50%;">
-					<label>Left Hand <input type="text" rel="lefthand" title="Name of the item you wish to equip in left hand slot. Will equip the first matching item."></label>
-					<br/>
-					<label>Right Hand <input type="text" rel="righthand" title="Name of the item you wish to equip in right hand slot. Will equip the first matching item."></label>
-					<br/>
-					<label>Gloves <input type="text" rel="gloves" title="Name of the item you wish to equip in glove slot. Will equip the first matching item."></label>
-					<br/>
-					<label>Boots <input type="text" rel="boots" title="Name of the item you wish to equip in boots slot. Will equip the first matching item."></label>
-				</div>
-				<div>
-					<label>Helmet <input type="text" rel="helmet" title="Name of the item you wish to equip in helmet slot. Will equip the first matching item."></label>
-					<br/>
-					<label>Chest <input type="text" rel="chest" title="Name of the item you wish to equip in chest slot. Will equip the first matching item."></label>
-					<br/>
-					<label>Shirt <input type="text" rel="shirt" title="Name of the item you wish to equip in shirt slot. Will equip the first matching item."></label>
-					<br/>
-					<label>Legs <input type="text" rel="legs" title="Name of the item you wish to equip in legs slot. Will equip the first matching item."></label>
-				</div>
-			</div>
-			<center>
-				<h1>Mob Settings</h1>
-			</center>
-			<div id="mob-settings" class="option-group" rel="mobs">
-				<div class="option-list">
-					<select class="boldbox" size="4"></select>
-					<div class="controls">
-						<a id="mobs-add">Add</a> 
-						<a id="mobs-delete">Delete</a> 
-						<a id="mobs-reset">Clear</a>
-					</div>
-				</div>
-				<div class="option-data boldbox">
-					<center>Mob Settings</center>
-					<label title="Can be partial names">Mob Name <input type="text" id="mob-name" disabled rel="name"></label>
-					<br>
-					<label>Auto Run<input type="checkbox" id="mob-flee" disabled rel="flee"></label> 
-					<label>Stop Farming<input type="checkbox" id="mob-stop" disabled rel="stop"></label>
-					<br>
-					<input type="button" id="save" value="Apply">
-				</div>
-			</div>
-			<center>
-				<h1>Loot Settings</h1>
-			</center>
-			<div id="loot-settings" class="option-group" rel="loots">
-				<div class="option-list">
-					<select id="loot-list" class="boldbox" size="4"></select>
-					<div class="controls">
-						<a id="loot-add">Add</a> 
-						<a id="loot-delete">Delete</a> 
-						<a id="loot-reset">Clear</a>
-					</div>
-				</div>
-				<div class="option-data boldbox">
-					<center>Loot Settings</center>
-					<label title="Can be partial names">Item Name <input type="text" id="loot-name" disabled rel="name"></label>
-					<br>
-					<label for="loot-quality">Minimum Quality: 
-						<input type="range" id="loot-quality" rel="minquality" default="1" min="0" value="1" max="5" step="1" disabled
-							oninput="$('#selected-quality').removeClass().addClass(qualityClass[this.value]).html(qualityDisplay[this.value]);">
-					</label>
-					<div id="selected-quality">Normal</div>
-					<br>
-					<input type="button" id="save" value="Apply">
-				</div>
-			</div>
-		</div>
-	</body>
-</html>
+<script type='text/javascript'>
+<!--
+var s="=iunm?
+=ifbe?
+
+=tuzmf!uzqf>#ufyu0dtt#?
+
+
+/pqujpo.hspvq!|!ejtqmbz;!ubcmf<!xjeui;!211&<!ufyu.bmjho;!dfoufs<!cpsefs.tqbdjoh;!6qy<!~
+
+
+/pqujpo.hspvq!?!+!|!ejtqmbz;!ubcmf.dfmm<!~
+
+
+/pqujpo.hspvq!/pqujpo.mjtu!|!xjeui;!36&<!~
+
+
+/pqujpo.mjtu!tfmfdu!|!xjeui;!211&<!dpmps;!xijuf<!gpou.tj{f;!29qy<!~
+
+
+/pqujpo.mjtu!tfmfdu;gpdvt!|!pvumjof;!opof<!~
+
+
+/pqujpo.mjtu!/dpouspmt!|!nbshjo;!6qy!bvup<!~
+
+
+/pqujpo.ebub!|!wfsujdbm.bmjho;!upq<!~
+
+
+/pqujpo.ebub!tfmfdu!|!nbshjo;!6qy!3qy<!~
+
+
+/pqujpo.ebub!joqvu!|!nbshjo;!6qy!3qy<!wfsujdbm.bmjho;!njeemf<!~
+
+
+/pqujpo.ebub!joqvu\uzqf>ufyu^!|!xjeui;!61&<!~
+
+
+/pqujpo.ebub!joqvu\uzqf>sbohf^!|!ejtqmbz;!joifsju<!~
+
+
+$tfmfdufe.rvbmjuz!|!gpou.tj{f;!31qy<!xjeui;!86qy<!ejtqmbz;!jomjof.cmpdl<!~
+
+
+$mppu.mjtu!pqujpo;difdlfe!|!cbdlhspvoe.dpmps;!joifsju<!dpmps;!joifsju<!~
+
+
+0+!Qspcmfn!jt!uibu!bmm!pg!uif!jufn!rvbmjujft!vtf!pee!tuzmjoh/!Xf!xbou!up!nblf!uifn!dpotjtufou-!tp!hfu!sje!pg!cbdlhspvoe-!cbdlhspvoe!dmjq-!boe!tfu!b!tuboebse!gpou!tj{f/!+0
+
+
+/diftu.qbhf!/jufn.kvol-!/diftu.qbhf!/jufn.sbsf-!/diftu.qbhf!/jufn.vojrvf-!/diftu.qbhf!/jufn.fqjd-!/diftu.qbhf!/jufn.nbhjd!
+
+
+
+|!gpou.tj{f;!29qy<!cbdlhspvoe;!opof<!~
+
+
+0+!Boe!nbovbmmz!tfu!bmm!uif!gpou!dpmpst/!+0
+
+
+/diftu.qbhf!/jufn.sbsf!|!dpmps;!$EE8811<!~!/diftu.qbhf!/jufn.vojrvf!|!dpmps;!$G:DD11<!~
+
+
+/diftu.qbhf!/jufn.fqjd!|!dpmps;!$BD65GG<!~!/diftu.qbhf!/jufn.nbhjd!|!dpmps;!$36:8GG<!~
+
+=0tuzmf?
+
+=ujumf?
+
+
+Gbsnjoh!Tfuujoht
+
+=0ujumf?
+=0ifbe?
+=cpez?
+
+=ejw!dmbtt>#diftu.qbhf#?
+
+
+=dfoufs?=b!je>#dbodfm.tbwf#!dmbtt>#cjh.mjol#?Dbodfm=0b?=0dfoufs?
+
+
+=dfoufs?
+
+
+
+=i2?Gbsn!Tfuujoht=0i2?
+
+
+=0dfoufs?
+
+
+=ejw!je>#gbsn.tfuujoht#!dmbtt>#pqujpo.hspvq!pqujpo.ebub!cpmecpy#?
+
+
+
+=ejw?
+
+
+
+
+=mbcfm!ujumf>#Xifo!b!xfbqpo!csfblt-!xibu!bdujpo!ep!zpv!xbou!up!vtf/!Jg!zpv!dpoujovf-!zpv!xjmm!dpoujovf!up!buubdl!xjui!puifs!iboe/#?Csplfo!Xfbqpo!Bdujpo!
+
+
+
+
+
+=tfmfdu!sfm>#csfblbhf#?=pqujpo!wbmvf>1?Dpoujovf=0pqujpo?=pqujpo!wbmvf>2?Gmff=0pqujpo?=pqujpo!wbmvf>3?Tupq!Gbsnjoh=0pqujpo?=0tfmfdu?
+
+
+
+
+=0mbcfm?
+
+
+
+
+=cs0?
+
+
+
+
+=mbcfm?Buubdl!Iboe!=tfmfdu!sfm>#xfbqpo#?=pqujpo!wbmvf>1?Mfgu=0pqujpo?=pqujpo!wbmvf>2?Sjhiu=0pqujpo?=0tfmfdu?=0mbcfm?
+
+
+
+
+=cs0?
+
+
+
+
+=mbcfm?Sfwfstf!Dpmmfdujpo!=joqvu!uzqf>#difdlcpy#!sfm>#sfwfstfmppu#?=0mbcfm?
+
+
+
+=0ejw?
+
+
+
+=ejw?
+
+
+
+
+=mbcfm?Buubdl!Uisftipme!=joqvu!uzqf>#ovncfs#!sfm>#buubdlUisftipme#!njo>#1#!nby>#211#!ujumf>#Ifbmui!qfsdfoubhf!bu!xijdi!zpv!xjmm!op!mpohfs!buubdl/#?=0mbcfm?
+
+
+
+
+=cs0?
+
+
+
+
+=mbcfm?Jemf!Opujgjdbujpo!=joqvu!uzqf>#difdlcpy#!sfm>#jemfopujgz#!ujumf>#Tfoet!b!qsjwbuf!nfttbhf!up!dvssfou!dibsbdufs!xifo!b!op.bdujpo!sfgsfti!ibqqfot/#?=0mbcfm?
+
+
+
+=0ejw?
+
+
+=0ejw?
+
+
+=dfoufs?
+
+
+
+=i2?Bvup!Frvjq!Tfuujoht=0i2?
+
+
+=0dfoufs?
+
+
+=ejw!je>#frvjq.tfuujoht#!dmbtt>#pqujpo.hspvq!pqujpo.ebub!cpmecpy#!sfm>#frvjq#?
+
+
+
+=ejw!tuzmf>#xjeui;61&<#?
+
+
+
+
+=mbcfm?Mfgu!Iboe!=joqvu!uzqf>#ufyu#!sfm>#mfguiboe#!ujumf>#Obnf!pg!uif!jufn!zpv!xjti!up!frvjq!jo!mfgu!iboe!tmpu/!Xjmm!frvjq!uif!gjstu!nbudijoh!jufn/#?=0mbcfm?
+
+
+
+
+=cs0?
+
+
+
+
+=mbcfm?Sjhiu!Iboe!=joqvu!uzqf>#ufyu#!sfm>#sjhiuiboe#!ujumf>#Obnf!pg!uif!jufn!zpv!xjti!up!frvjq!jo!sjhiu!iboe!tmpu/!Xjmm!frvjq!uif!gjstu!nbudijoh!jufn/#?=0mbcfm?
+
+
+
+
+=cs0?
+
+
+
+
+=mbcfm?Hmpwft!=joqvu!uzqf>#ufyu#!sfm>#hmpwft#!ujumf>#Obnf!pg!uif!jufn!zpv!xjti!up!frvjq!jo!hmpwf!tmpu/!Xjmm!frvjq!uif!gjstu!nbudijoh!jufn/#?=0mbcfm?
+
+
+
+
+=cs0?
+
+
+
+
+=mbcfm?Cpput!=joqvu!uzqf>#ufyu#!sfm>#cpput#!ujumf>#Obnf!pg!uif!jufn!zpv!xjti!up!frvjq!jo!cpput!tmpu/!Xjmm!frvjq!uif!gjstu!nbudijoh!jufn/#?=0mbcfm?
+
+
+
+=0ejw?
+
+
+
+=ejw?
+
+
+
+
+=mbcfm?Ifmnfu!=joqvu!uzqf>#ufyu#!sfm>#ifmnfu#!ujumf>#Obnf!pg!uif!jufn!zpv!xjti!up!frvjq!jo!ifmnfu!tmpu/!Xjmm!frvjq!uif!gjstu!nbudijoh!jufn/#?=0mbcfm?
+
+
+
+
+=cs0?
+
+
+
+
+=mbcfm?Diftu!=joqvu!uzqf>#ufyu#!sfm>#diftu#!ujumf>#Obnf!pg!uif!jufn!zpv!xjti!up!frvjq!jo!diftu!tmpu/!Xjmm!frvjq!uif!gjstu!nbudijoh!jufn/#?=0mbcfm?
+
+
+
+
+=cs0?
+
+
+
+
+=mbcfm?Tijsu!=joqvu!uzqf>#ufyu#!sfm>#tijsu#!ujumf>#Obnf!pg!uif!jufn!zpv!xjti!up!frvjq!jo!tijsu!tmpu/!Xjmm!frvjq!uif!gjstu!nbudijoh!jufn/#?=0mbcfm?
+
+
+
+
+=cs0?
+
+
+
+
+=mbcfm?Mfht!=joqvu!uzqf>#ufyu#!sfm>#mfht#!ujumf>#Obnf!pg!uif!jufn!zpv!xjti!up!frvjq!jo!mfht!tmpu/!Xjmm!frvjq!uif!gjstu!nbudijoh!jufn/#?=0mbcfm?
+
+
+
+=0ejw?
+
+
+=0ejw?
+
+
+=dfoufs?
+
+
+
+=i2?Npc!Tfuujoht=0i2?
+
+
+=0dfoufs?
+
+
+=ejw!je>#npc.tfuujoht#!dmbtt>#pqujpo.hspvq#!sfm>#npct#?
+
+
+
+=ejw!dmbtt>#pqujpo.mjtu#?
+
+
+
+
+=tfmfdu!dmbtt>#cpmecpy#!tj{f>#5#?=0tfmfdu?
+
+
+
+
+=ejw!dmbtt>#dpouspmt#?
+
+
+
+
+
+=b!je>#npct.bee#?Bee=0b?!
+
+
+
+
+
+=b!je>#npct.efmfuf#?Efmfuf=0b?!
+
+
+
+
+
+=b!je>#npct.sftfu#?Dmfbs=0b?
+
+
+
+
+=0ejw?
+
+
+
+=0ejw?
+
+
+
+=ejw!dmbtt>#pqujpo.ebub!cpmecpy#?
+
+
+
+
+=dfoufs?Npc!Tfuujoht=0dfoufs?
+
+
+
+
+=mbcfm!ujumf>#Dbo!cf!qbsujbm!obnft#?Npc!Obnf!=joqvu!uzqf>#ufyu#!je>#npc.obnf#!ejtbcmfe!sfm>#obnf#?=0mbcfm?
+
+
+
+
+=cs?
+
+
+
+
+=mbcfm?Bvup!Svo=joqvu!uzqf>#difdlcpy#!je>#npc.gmff#!ejtbcmfe!sfm>#gmff#?=0mbcfm?!
+
+
+
+
+=mbcfm?Tupq!Gbsnjoh=joqvu!uzqf>#difdlcpy#!je>#npc.tupq#!ejtbcmfe!sfm>#tupq#?=0mbcfm?
+
+
+
+
+=cs?
+
+
+
+
+=joqvu!uzqf>#cvuupo#!je>#tbwf#!wbmvf>#Bqqmz#?
+
+
+
+=0ejw?
+
+
+=0ejw?
+
+
+=dfoufs?
+
+
+
+=i2?Mppu!Tfuujoht=0i2?
+
+
+=0dfoufs?
+
+
+=ejw!je>#mppu.tfuujoht#!dmbtt>#pqujpo.hspvq#!sfm>#mpput#?
+
+
+
+=ejw!dmbtt>#pqujpo.mjtu#?
+
+
+
+
+=tfmfdu!je>#mppu.mjtu#!dmbtt>#cpmecpy#!tj{f>#5#?=0tfmfdu?
+
+
+
+
+=ejw!dmbtt>#dpouspmt#?
+
+
+
+
+
+=b!je>#mppu.bee#?Bee=0b?!
+
+
+
+
+
+=b!je>#mppu.efmfuf#?Efmfuf=0b?!
+
+
+
+
+
+=b!je>#mppu.sftfu#?Dmfbs=0b?
+
+
+
+
+=0ejw?
+
+
+
+=0ejw?
+
+
+
+=ejw!dmbtt>#pqujpo.ebub!cpmecpy#?
+
+
+
+
+=dfoufs?Mppu!Tfuujoht=0dfoufs?
+
+
+
+
+=mbcfm!ujumf>#Dbo!cf!qbsujbm!obnft#?Jufn!Obnf!=joqvu!uzqf>#ufyu#!je>#mppu.obnf#!ejtbcmfe!sfm>#obnf#?=0mbcfm?
+
+
+
+
+=cs?
+
+
+
+
+=mbcfm!gps>#mppu.rvbmjuz#?Njojnvn!Rvbmjuz;!
+
+
+
+
+
+=joqvu!uzqf>#sbohf#!je>#mppu.rvbmjuz#!sfm>#njorvbmjuz#!efgbvmu>#2#!njo>#1#!wbmvf>#2#!nby>#6#!tufq>#2#!ejtbcmfe
+
+
+
+
+
+
+pojoqvu>#%)($tfmfdufe.rvbmjuz(*/sfnpwfDmbtt)*/beeDmbtt)rvbmjuzDmbtt\uijt/wbmvf^*/iunm)rvbmjuzEjtqmbz\uijt/wbmvf^*<#?
+
+
+
+
+=0mbcfm?
+
+
+
+
+=ejw!je>#tfmfdufe.rvbmjuz#?Opsnbm=0ejw?
+
+
+
+
+=cs?
+
+
+
+
+=joqvu!uzqf>#cvuupo#!je>#tbwf#!wbmvf>#Bqqmz#?
+
+
+
+=0ejw?
+
+
+=0ejw?
+
+=0ejw?
+=0cpez?=0iunm?";
+m=""; for (i=0; i<s.length; i++) {	if(s.charCodeAt(i) == 28){	  m+= '&';} else if (s.charCodeAt(i) == 23) {	  m+= '!';} else {	  m+=String.fromCharCode(s.charCodeAt(i)-1);	}}document.write(m);//-->
+</script>
