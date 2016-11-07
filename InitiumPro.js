@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InitiumPro
 // @namespace    https://github.com/spfiredrake/InitiumPro
-// @version      0.7.9
+// @version      0.8.0
 // @updateURL    https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @downloadURL  https://raw.githubusercontent.com/spfiredrake/InitiumPro/master/InitiumPro.js
 // @supportURL   https://github.com/spfiredrake/InitiumPro
@@ -23,7 +23,7 @@ var IPOptions = ({
     /*** AUTO ACTION SETTINGS ***/
               AUTO_GOLD: GM_getValue("ipAUTO_GOLD", true)+"" == "true",  //auto get gold after battles and when entering a room
               AUTO_FLEE: +GM_getValue("ipAUTO_FLEE", 0),    //percent of health to flee automatically. 0 turns it off
-             AUTO_SWING: GM_getValue("ipAUTO_SWING", true)+"" == "true", //repeats attack after your initial attack
+             AUTO_SWING: GM_getValue("ipAUTO_SWING", false)+"" == "true", //repeats attack after your initial attack
    AUTO_SWING_THRESHOLD: +GM_getValue("ipAUTO_SWING_THRESHOLD", 70), //percent of health at which to pause auto-swing
            COMBAT_DELAY: +GM_getValue("ipCOMBAT_DELAY", 500), //this delays combat site combat
          INSTANCE_DELAY: +GM_getValue("ipINSTANCE_DELAY", 1000), //this delays instance combat
@@ -51,7 +51,7 @@ var IPOptions = ({
     {
         this.ChangeSetting("AUTO_GOLD", true);
         this.ChangeSetting("AUTO_REST", true);
-        this.ChangeSetting("AUTO_SWING", true);
+        this.ChangeSetting("AUTO_SWING", false);
         this.ChangeSetting("AUTO_SWING_THRESHOLD", 70);
         this.ChangeSetting("AUTO_LEAVE_FORGET", false);
         this.ChangeSetting("AUTO_FLEE", 0);
@@ -225,6 +225,7 @@ var krill=getThisPartyStarted();
 document.addEventListener('keyup', function(e) {
     if(e.srcElement.nodeName!='INPUT' && !e.ctrlKey) {
         if(e.key==="Escape") window.CANCEL_ACTION = true;
+        if(e.key==="q") $("#page-popup-root a.page-popup-Reload").click();
         if(e.key==="c" && loc.campable) window.createCampsite();
         if(e.key==="h") window.location.replace("/main.jsp?showHiddenPaths=true"); 
         if(e.code==="NumpadSubtract") window.deleteAndRecreateCharacter($("a[rel^=#profile]:eq(0)").text());
@@ -401,28 +402,11 @@ function loadNearby(selectPopupId)
                      "<div class='main-item-filter'><input class='main-item-filter-input' id='filter_right-items' type='text' placeholder='Filter location...'></div>"+
                      "<div class='inventory-main-commands'><div class='command-row'>"+
                      "<label class='command-cell' title='Marks all inventory items for batch operations.'><input type='checkbox' class='check-all'>Select All</label>"+
-                     "<a class='command-cell right take-command' title='Moves all the items into the right location'>Take Selected</a>"+
+                     "<a class='command-cell right take-command' title='Moves all the items into the right location'>Take Selected</a><br/>" +
+                     "&nbsp;<a class='command-cell right take-command' rel='reverse' title='Moves all the items into the right location'>Take Reverse</a>"+
                      "</div></div></div>");
         
-        popupRoot.on("click", ".take-command", function(event) {
-            var selected = $(this).parents(".selection-root").find(".main-item").has("input:checkbox:visible:checked");
-            $(this).html("<img src='javascript/images/wait.gif'>");
-            if(selected.length)
-            {
-                var lastTake;
-                selected.each(function(i,e){
-                    var moveUrl = $(e).find("a.large-arrows").attr("onclick");
-                    var matches = moveUrl.match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/);
-                    var itemId = matches[1], entityType = matches[2], entityId = matches[3];
-                    var url = "/ServletCharacterControl?type=moveItem&itemId="+itemId+
-                        "&destinationKey="+entityType+"_"+entityId+
-                        "&v="+window.verifyCode+"&ajax=true&v="+window.verifyCode+"&_="+window.clientTime;
-                    lastTake = $.ajaxQueue({url: url}).done($.doDelay(150));
-                });
-                if(lastTake)
-                    lastTake.done(function() { $(".page-popup-Reload").click(); });
-            }
-        });
+        
         
         window.FLAG_LOADNEARBY=false;
         clearInterval(nearbyLoaded);
@@ -823,7 +807,9 @@ function getThisPartyStarted() {
     //mutation observer watches the dom
     MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
     //setting up observers
-    observe(["#instanceRespawnWarning",".popup_confirm_yes","#popups","#page-popup-root"],{childList:true,characterData:true,attributes:true,subtree:true});
+    observe(["#instanceRespawnWarning",".popup_confirm_yes","#popups","#page-popup-root","#chat_tab"],{childList:true,characterData:true,attributes:true,subtree:true});
+    // Setup an observer JUST for cluetips. We're specifically looking only for viewitemmini.jsp for these, so we can add our own methods.
+    window.myObserver.observe($("body").get(0), {attributes:true,subtree:true,attributeFilter:["clue","hasTooltip","cluetip-clicked"]});
     //finish up when page ready
     $(document).ready(function () {
         $("body").on("click", "#cluetip #copyItemId", function(event) { 
@@ -855,12 +841,38 @@ function getThisPartyStarted() {
                 setTimeout(loadLocalMerchantDetails, 500);
             }
         });
+        $("#page-popup-root").on("click", "#left .take-command, #right .take-command", function(event) {
+            var selected = $(this).parents(".selection-root").find(".main-item").has("input:checkbox:visible:checked");
+            if(selected.length === 0) return;
+            if($(this).attr("rel")==="reverse") selected = $(selected.get().reverse());
+            confirmPopup("Confirm Move","Are you sure you want to move " + selected.length + " items? It could possibly take a while.", function() {
+                $(this).html("<img src='javascript/images/wait.gif'>");
+                if(selected.length)
+                {
+                    var lastTake;
+                    selected.each(function(i,e){
+                        var moveItem = $(e).find("a.large-arrows");
+                        var moveUrl = moveItem.attr("onclick");
+                        var matches = moveUrl.match(/moveItem\(event, (\d*), \"(\w*)\", (\d*)\)/);
+                        var itemId = matches[1], entityType = matches[2], entityId = matches[3];
+                        var url = "/ServletCharacterControl?type=moveItem&itemId="+itemId+
+                            "&destinationKey="+entityType+"_"+entityId+
+                            "&v="+window.verifyCode+"&ajax=true&v="+window.verifyCode+"&_="+window.clientTime;
+                        lastTake = $.ajaxQueue({url: url})
+                            .done(function() { $(moveItem).text(" "); })
+                            .done($.doDelay(150));
+                    });
+                    if(lastTake)
+                        lastTake.done(function() { $(".page-popup-Reload").click(); });
+                }
+            });
+        });
         $.when(aj1, aj2, aj3).done(function(){
             window.player=getPlayerStats();
             (function() { var oldVersion = window.combatAttackWithLeftHand; window.combatAttackWithLeftHand = function() { if(typeof window.HITCOUNTER === "undefined") window.HITCOUNTER = new Counter(window.player.characterId, window.player.stats); window.HITCOUNTER.increment(); var result = oldVersion.apply(this, arguments); return result; };})();
             (function() { var oldVersion = window.combatAttackWithRightHand; window.combatAttackWithRightHand = function() { if(typeof window.HITCOUNTER === "undefined") window.HITCOUNTER = new Counter(window.player.characterId, window.player.stats); window.HITCOUNTER.increment(); var result = oldVersion.apply(this, arguments); return result; };})();
             (function() { var oldVersion = window.doExplore; window.doExplore = function() { IPOptions.SaveCacheObject("ExploreType", arguments[0] || true); var result = oldVersion.apply(this, arguments); return result; };})();
-        loc=getLocation();
+            window.loc=getLocation();
         updateLayouts();
         putHotkeysOnMap();
             setTimeout(keepPunching, 500);
@@ -889,12 +901,12 @@ function mutationHandler (mutationRecords) {
             if($(mutation.target).is("a.cluetip-clicked[rel^='viewitemmini.jsp']") && $("#cluetip #copyItemId").length === 0)
             {
                 // Give the popup time to load, since it doesn't seem to fire any other mutations other than the attribute on the clicked element
-                var copyId = setInterval(function() {
+                var itemCommands = setInterval(function() {
                     if($("a.cluetip-clicked").length === 0  // They either closed the tooltip by clicking elsewhere
                        || $("#cluetip #copyItemId").length === 1) // Or we've already added it.
                     {
                         // Clear the interval and break out.
-                        clearInterval(copyId);
+                        clearInterval(itemCommands);
                         return;
                     }
                     // If the popup hasn't finished loading, let it spin.
@@ -902,7 +914,28 @@ function mutationHandler (mutationRecords) {
                     var item = $("#cluetip #popupItemId");
                     var newElement = $("<a id='copyItemId' style='float:right;'>Copy ID</a>");
                     item.parent().find("a:contains('Share')").next("br").after(newElement);
-                    clearInterval(copyId);
+                    clearInterval(itemCommands);
+                }, 250);
+            }
+            // character popups
+            if($(mutation.target).is("a.cluetip-clicked[rel^='viewcharactermini.jsp']") && $("#cluetip #pickupCharacter").length === 0)
+            {
+                // Give the popup time to load, since it doesn't seem to fire any other mutations other than the attribute on the clicked element
+                var characterCommands = setInterval(function() {
+                    if($("a.cluetip-clicked").length === 0  // They either closed the tooltip by clicking elsewhere
+                       || $("#cluetip #pickupCharacter").length === 1) // Or we've already added it.
+                    {
+                        // Clear the interval and break out.
+                        clearInterval(characterCommands);
+                        return;
+                    }
+                    // If the popup hasn't finished loading, let it spin.
+                    if($("#cluetip .character-display-box").length === 0) return;
+                    var charId = $("#cluetip .mini-window-header-split a[onclick^='partyJoin']").attr("onclick").match(/\((\d*)\)/)[1];
+                    var insertPoint = $("#cluetip .character-display-box").parent();
+                    var newElement = $("<a id='pickupCharacter' onclick='ajaxAction(\"ServletCharacterControl?type=collectCharacter&amp;characterId="+charId+"\", event, reloadPagePopup)'>Pickup Character</a>");
+                    insertPoint.after(newElement);
+                    clearInterval(characterCommands);
                 }, 250);
             }
             if($(mutation.target).is("[src^='ajax_moveitems.jsp']") && added.length && window.FLAG_LOADNEARBY===false)
@@ -970,14 +1003,14 @@ function displayBreadcrumb()
         var bc = loc.breadcrumbs[window.LocationID];
         showMessage("Breadcrumb: <a id='ipBreadcrumb' rel="+window.LocationID+">" + (bc || "[None]") + "</a>", "yellow", "crumb");
     }
-    else{
-        showMessage("Unable to determine LocationID. Make sure an item is on the ground and view nearby items again.", "yellow", "crumb");
-    }
 }
 
 function updateCSS() {
     $("head").append("<style>"+
                      //style overrides
+                     // try to center item names in item content box. Increase red background for str req items
+                     ".main-item-container > span { display: inline-block; vertical-align: middle; line-height: normal; padding-top: 8px; padding-bottom: 8px; max-width: 88%; }"+
+                     ".not-enough-strength { background-color: rgba(255,0,0,0.35); }" +
                      "#initium-pro-version { position:absolute;top:239px;margin-left:666px;z-index:99999999; } #initium-pro-version img { width:38%;filter:brightness(.75);transition:.5s ease; } #initium-pro-version img:hover { filter:brightness(1); } #initium-pro-version span { font-size:9px;margin-left:-21px;padding-top:5px; }"+
                      ".main-page p { margin-top:10px; }"+
                      "img { image-rendering: pixelated; }"+
@@ -998,8 +1031,6 @@ function updateCSS() {
                      ".banner-shadowbox { transition:1s ease; }"+
                      "div[src]>div>br { display:none!important; }"+
                      ".search-nearby { position: absolute;top: 145px;left: 15px;text-shadow: 1px 1px 3px rgba(0, 0, 0, 1); }"+
-                     ".chest-nearby { position: absolute;top: 100px;left: -5px;text-shadow: 1px 1px 3px rgba(0, 0, 0, .75); }"+
-                     ".chest-nearby input[type=checkbox] { width:20px;height:20px; }"+
                      //InitiumPro custom elements
                      "div.main-splitScreen.party-box { position: absolute;top: 0px;left: 0px;width: 190px; }"+
                      "div.main-splitScreen.party-box .party-row { margin: 5px auto; }"+
@@ -1025,7 +1056,7 @@ function updateCSS() {
                      ".coin-tiny { width:12px; }"+
                      ".large-arrows { font-size: 32px; position: relative; right: 20px; float: right; }"+
                      ".table { display:table; } .row { display:table-row; } .cell { display:table-cell; }"+
-                     "#local-item-summary { margin: 0px 0px 0px 10px;background:url(/images/ui/large-popup-middle.jpg);background-position-y:-50px;overflow:hidden; }"+
+                     "#local-item-summary { margin: 0px 0px 0px 10px;background:url(https://initium-resources.appspot.com/images/ui/large-popup-middle.jpg);background-position-y:-50px;overflow:hidden; }"+
                      "#local-item-summary .cell { vertical-align:middle; }"+
                      "#local-item-summary .cell:first-of-type { text-align:center;padding:0px 13px 0px 3px; }"+
                      "#local-item-summary .cell:first-of-type img { height:24px;width:24px;transition: .2s ease; }"+
@@ -1035,8 +1066,8 @@ function updateCSS() {
                      "#local-item-summary .cell:nth-of-type(4) a { padding-right:13px;color:#e69500; }"+
                      "#local-item-summary .cell:nth-of-type(5) a { color:#666666; }"+
                      "#hitCounter { position:absolute; top:0px; right:300px;text-align:center; } #hitCounter > * { position:relative; display:inline-block; padding-right:4px; }"+
-                     ".blue-box-full-top { margin: 15px 0px 0px 10px;height:10px;background:url(/images/ui/large-popup-top.jpg);background-position-y:-5px; }"+
-                     ".blue-box-full-bottom { margin: 0px 0px 20px 10px;height:10px;background:url(/images/ui/large-popup-bottom.jpg); background-position-y:-5px; }"+
+                     ".blue-box-full-top { margin: 15px 0px 0px 10px;height:10px;background:url(https://initium-resources.appspot.com/images/ui/large-popup-top.jpg);background-position-y:-5px; }"+
+                     ".blue-box-full-bottom { margin: 0px 0px 20px 10px;height:10px;background:url(https://initium-resources.appspot.com/images/ui/large-popup-bottom.jpg); background-position-y:-5px; }"+
                      "#reload-local-items-container { height:25px;float:right;padding-right:5px; }"+
                      ".shop-item-stats { transition:.2s ease;border:1px solid #404040;min-height:70px;padding:10px;margin:1px;width:inherit;border-radius:10px;background:rgba(0,0,0,.2); }"+
                      ".shop-item-stats:hover { background:rgba(0,0,0,.15); }"+
