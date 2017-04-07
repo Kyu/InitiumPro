@@ -6,7 +6,7 @@
 ## `How to use:`
 
 1. Install Tampermonkey for Chrome, or Greasemonkey for Firefox
-2. [Click this link](/raw/master/InitiumPro.user.js), then click "Install".
+2. [Click this link](https://raw.githubusercontent.com/SPFiredrake/InitiumPro/master/InitiumPro.user.js), then click "Install".
 3. That's it! You can now start playing as a pro.
 
 ## `What InitiumPro adds:`
