@@ -6,8 +6,8 @@
 ## `How to use:`
 
 1. Install Tampermonkey for Chrome, or Greasemonkey for Firefox
-2. Add a new script, and paste all this business in there.
-3. Start playing. You're now a pro
+2. [Click this link](/raw/master/InitiumPro.user.js), then click "Install".
+3. That's it! You can now start playing as a pro.
 
 ## `What InitiumPro adds:`
 
@@ -71,6 +71,12 @@
 
 * Watch your strength, dexterity and intelligence grow!
 
+### Rerolling Helper
+***
+![](http://i.imgur.com/spthUcv.png)
+
+* See the amount oh hits done (since script installation) from each character.
+
 ### Click on the candle to light up the area
 ***
 ![](http://content.screencast.com/users/sean-malseed/folders/Jing/media/bc3836d1-73b2-41a9-90cc-fdf60d2dd6b4/00001480.png)
@@ -110,6 +116,6 @@
 
 ## How to change the options
 
-Open the script, and the options block is right at the top. Use true or false, and make sure you leave the semicolon at the end of the line. AUTO_FLEE takes the percent of health under which you'll flee, and 0 turns it off.
+Click the gear button at the top left of the window
 
-![](http://content.screencast.com/users/sean-malseed/folders/Jing/media/79bb9f3e-119b-4cc3-9408-a055138cf5bb/00001482.png)
+![](http://i.imgur.com/40GKIma.png)
